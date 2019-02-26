@@ -19,18 +19,23 @@ void
 cloud_cb (const sensor_msgs::PointCloud2ConstPtr& input)
 {
   // Convert the sensor_msgs/PointCloud2 data to pcl/PointCloud
-  pcl::PCLPointCloud2::Ptr cloud_blob (new pcl::PCLPointCloud2), cloud_filtered_blob (new pcl::PCLPointCloud2);
-  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>),   cloud_p  (new pcl::PointCloud<pcl::PointXYZ>), cloud (new pcl::PointCloud<pcl::PointXYZ>);
+  //pcl::PCLPointCloud2::Ptr cloud_blob (new pcl::PCLPointCloud2), cloud_filtered_blob (new pcl::PCLPointCloud2);
+  //pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filtered (new pcl::PointCloud<pcl::PointXYZ>),   cloud_p  (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PCLPointCloud2* cloud = new pcl::PCLPointCloud2;
+  pcl::PointCloud2ConstPtr cloudPtr(cloud);
+  pcl::PCLPointCloud2 cloud_filtered;
   //pcl::PointCloud<pcl::PointXYZ> cloud;
-  pcl::fromROSMsg(*cloud_blob, *cloud);
+  pcl_conversions::toPCL(*input, *cloud);
 
+  //Filtering is performed here, to reduce the number of data points
   pcl::VoxelGrid<pcl::PCLPointCloud2> sor;
-  sor.setInputCloud (cloud_blob);
+  sor.setInputCloud (cloudPtr);
   sor.setLeafSize (0.01f, 0.01f, 0.01f);
-  sor.filter(*cloud_filtered_blob);
+  sor.filter(cloud_filtered);
 
-  pcl::fromPCLPointCloud2(*cloud_filtered_blob, *cloud_filtered);
-
+  //pcl::fromPCLPointCloud2(*cloud_filtered_blob, *cloud_filtered);
+	
+  //Finding the coefficients
   pcl::ModelCoefficients coefficients;
   pcl::PointIndices::Ptr inliers (new pcl::ModelCoefficients());
   // Create the segmentation object
@@ -65,7 +70,7 @@ while (cloud_filtered->points.size() > 0.3 * nr_points)
   // Publish the model coefficients
   //pcl_msgs::PointCloud2 ros_cloud;
   sensor_msgs::PointCloud2 ros_cloud;
-  pcl_conversions::fromPCL(*cloud, ros_cloud);
+  pcl_conversions::fromPCL(cloud, ros_cloud);
   pub.publish(ros_cloud);
 }
 
