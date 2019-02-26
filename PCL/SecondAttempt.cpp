@@ -79,18 +79,23 @@ void callBack (const sensor_msgs::PointCloud2ConstPtr& input)
     extract.setIndices (inliers);
     extract.setNegative (false);
     extract.filter (*cloud_p);
+    /*
     std::cerr << "PointCloud representing the planar component: " << cloud_p->width * cloud_p->height << " data points." << std::endl;
 
     std::stringstream ss;
     ss << "table_scene_lms400_plane_" << i << ".pcd";
     writer.write<pcl::PointXYZ> (ss.str (), *cloud_p, false);
 
+*/
     // Create the filtering object
     extract.setNegative (true);
     extract.filter (*cloud_f);
     cloud_filtered.swap (cloud_f);
     i++;
   }
+
+  sensor_msgs::PointCloud2ConstPtr result;
+  pcl::toROSMsg(*cloud_f, *result);
 }
 
 int main(int argc, char** argv)
@@ -100,7 +105,7 @@ int main(int argc, char** argv)
   ros::NodeHandle nh;
 
   // Create a ROS subscriber for the input point cloud
-  ros::Subscriber sub = nh.subscribe ("input", 1, cloud_cb);
+  ros::Subscriber sub = nh.subscribe ("/kinect2/sd/points", 1, callBack);
 
   // Create a ROS publisher for the output model coefficients
   pub = nh.advertise<pcl_msgs::ModelCoefficients> ("output", 1);
