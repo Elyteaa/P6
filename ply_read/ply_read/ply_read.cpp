@@ -7,6 +7,7 @@ and then run the executable  */
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/io/ply_io.h>
+/*#include <pcl/visualization/cloud_viewer.h>*/
 
 int
 main (int argc, char** argv)
@@ -26,6 +27,13 @@ main (int argc, char** argv)
     std::cout << "    " << cloud->points[i].x
               << " "    << cloud->points[i].y
               << " "    << cloud->points[i].z << std::endl;
+
+   
+   /*pcl::visualization::CloudViewer viewer ("Simple Cloud Viewer");
+   viewer.showCloud (cloud);
+   while (!viewer.wasStopped ())
+   {
+   }    */
 
   return (0);
 }
