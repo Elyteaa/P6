@@ -30,3 +30,19 @@ void callback(const sensor_msgs::PointCloud2ConstPtr& input)
     pcl::io::savePCDFileASCII("nice_leg1.pcd", *cloud_pcl);
     cout << "Saved" << endl;
 }
+
+int main(int argc, char** argv)
+{
+    // Initialize ROS
+    ros::init (argc, argv, "reading_pcd");
+    ros::NodeHandle nh;
+
+    // Create a ROS subscriber for the input point cloud
+    ros::Subscriber sub = nh.subscribe ("/kinect2/hd/points", 1, callback);
+
+    // Create a ROS publisher for the output model coefficients
+    //pub = nh.advertise<sensor_msgs::PointCloud2> ("output", 1);
+
+    // Spin
+    ros::spin ();
+}
