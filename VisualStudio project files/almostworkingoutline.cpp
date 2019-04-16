@@ -35,11 +35,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr quarterLiers (pcl::PointCloud<pcl::PointXYZ>
 	{
 		if ((bigx < cloud->points[x].x && bigy > cloud->points[x].y) || (bigx > cloud->points[x].x && bigy < cloud->points[x].y))
 		{
-			cout << "bigx = " << bigx << " bigy = " << bigy << endl;
 			bigx = cloud->points[x].x;
 			bigy = cloud->points[x].y;
-
-			cout << "x = " << cloud->points[x].x << " y = " << cloud->points[x].y << endl;
 
 			cloud_return->push_back(cloud->points[x]);
 		}
@@ -50,14 +47,18 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr quarterLiers (pcl::PointCloud<pcl::PointXYZ>
 
 pcl::PointCloud<pcl::PointXYZ>::Ptr scanAxis (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
+	const int SCALE_SIZE = 1000;
+	const int INTERVAL_SIZE = 5;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_return (new pcl::PointCloud<pcl::PointXYZ>);
-	double minx = cloud->points[0].x;
-	double miny = cloud->points[0].y;
-	double maxx = minx;
-	double maxy = miny;
+	float minx = cloud->points[0].x;
+	float miny = cloud->points[0].y;
+	float maxx = minx;
+	float maxy = miny;
 
 	for (int i = 0; i < cloud->points.size(); i++)
 	{
+		cloud->points[i].x *= SCALE_SIZE;
+		cloud->points[i].y *= SCALE_SIZE;
 		cloud->points[i].z = 0;
 	}
 
@@ -71,63 +72,88 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr scanAxis (pcl::PointCloud<pcl::PointXYZ>::Pt
 	}
 
 	//Scan x axis for max and min values for each point
-	for (int i = minx; i < maxx - 1; i++)
+	for (float i = minx; i < maxx; i+= INTERVAL_SIZE)
 	{
 		vector <pcl::PointXYZ> value_listx;
 		//Iterate through the interval and choose 2 values
 		for (int j = 0; j < cloud->points.size(); j++)
 		{
 			//Save the points, located in the interval to a vector
-			if ((cloud->points[j].x >= minx) && (cloud->points[j].x < minx + 1))
+			if ((cloud->points[j].x >= i) && (cloud->points[j].x < i + INTERVAL_SIZE))
 			{
 				value_listx.push_back(cloud->points[j]);
 			}
 		}
 
-		cout << value_listx.size() << endl;
-
 		//Pick max and min value points and save them to the return cloud
-		double i_miny = 0;
-		double i_maxy = 0;
-
-		for (int k = 1; k < value_listx.size(); k++)
+		if (value_listx.size() == 1)
 		{
-			if (value_listx.at(i_miny).y > value_listx.at(k).y) { i_miny = k; }
-			if (value_listx.at(i_maxy).y < value_listx.at(k).y) { i_maxy = k; }
+			value_listx.at(0).x /= SCALE_SIZE;
+			value_listx.at(0).y /= SCALE_SIZE;
+			cloud_return->push_back(value_listx.at(0));
 		}
+		else if (value_listx.size() > 1)
+		{
+			int i_min = 0;
+			int i_max = 0;
 
-		//Pushback found points
-		cloud_return->push_back(value_listx.at(i_miny));
-		cloud_return->push_back(value_listx.at(i_maxy));
+			for (int k = 1; k < value_listx.size(); k++)
+			{
+				if (value_listx.at(i_min).y > value_listx.at(k).y) { i_min = k; }
+				if (value_listx.at(i_max).y < value_listx.at(k).y) { i_max = k; }
+			}
+
+			//Pushback found points
+			value_listx.at(i_min).x /= SCALE_SIZE;
+			value_listx.at(i_min).y /= SCALE_SIZE;
+			value_listx.at(i_max).x /= SCALE_SIZE;
+			value_listx.at(i_max).y /= SCALE_SIZE;
+			cloud_return->push_back(value_listx.at(i_min));
+			cloud_return->push_back(value_listx.at(i_max));
+		}
+		
 	}
 
 	//Scan y axis for max and min values for each point
-	for (int i = miny; i < maxy - 1; i++)
+	for (int i = miny; i < maxy; i += INTERVAL_SIZE)
 	{
 		vector <pcl::PointXYZ> value_listy;
 		//Iterate through the interval and choose 2 values
 		for (int j = 0; j < cloud->points.size(); j++)
 		{
 			//Save the points, located in the interval to a vector
-			if ((cloud->points[j].y >= miny) && (cloud->points[j].y < miny + 1))
+			if ((cloud->points[j].y >= i) && (cloud->points[j].y < i + INTERVAL_SIZE))
 			{
 				value_listy.push_back(cloud->points[j]);
 			}
 		}
 
 		//Pick max and min value points and save them to the return cloud
-		double i_minx = 0;
-		double i_maxx = 0;
-
-		for (int k = 1; k < value_listy.size(); k++)
+		if (value_listy.size() == 1)
 		{
-			if (value_listy.at(i_minx).x > value_listy.at(k).x) { i_minx = k; }
-			if (value_listy.at(i_maxx).x < value_listy.at(k).x) { i_maxx = k; }
+			value_listy.at(0).x /= SCALE_SIZE;
+			value_listy.at(0).y /= SCALE_SIZE;
+			cloud_return->push_back(value_listy.at(0));
 		}
+		else if (value_listy.size() > 1)
+		{
+			int i_min = 0;
+			int i_max = 0;
 
-		//Pushback found points
-		cloud_return->push_back(value_listy.at(i_minx));
-		cloud_return->push_back(value_listy.at(i_maxx));
+			for (int k = 1; k < value_listy.size(); k++)
+			{
+				if (value_listy.at(i_min).y > value_listy.at(k).y) { i_min = k; }
+				if (value_listy.at(i_max).y < value_listy.at(k).y) { i_max = k; }
+			}
+
+			//Pushback found points
+			value_listy.at(i_min).x /= SCALE_SIZE;
+			value_listy.at(i_min).y /= SCALE_SIZE;
+			value_listy.at(i_max).x /= SCALE_SIZE;
+			value_listy.at(i_max).y /= SCALE_SIZE;
+			cloud_return->push_back(value_listy.at(i_min));
+			cloud_return->push_back(value_listy.at(i_max));
+		}
 	}
 
 	return cloud_return;
@@ -144,7 +170,24 @@ int main(int argc, char** argv)
 
 	copyPointCloud(*cloud, *plane);
 
+	plane = quarterLiers(cloud);
 	plane_out = scanAxis(cloud);
+
+	cout << "returned cloud size " << plane_out->points.size() << endl;
+	
+	for (int i = 0; i < plane->points.size(); i++)
+	{
+		for  (int j = 0; j < plane_out->points.size(); j++)
+		{
+			if ((plane->points[i].x == plane_out->points[j].x) && (plane->points[i].y == plane_out->points[j].y))
+			{
+				plane_out->points.erase(plane_out->points.begin() + j);
+				true;
+			}
+		}
+	}
+	
+	cout << "size: " << plane_out->points.size() << endl;
 
 	pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 	viewer.setBackgroundColor(0.0, 0.0, 0.0);
