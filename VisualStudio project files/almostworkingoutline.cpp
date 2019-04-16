@@ -33,7 +33,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr quarterLiers (pcl::PointCloud<pcl::PointXYZ>
 
 	for (int x = 0; x < cloud->points.size(); x++)
 	{
-		if ((bigx < cloud->points[x].x && bigy > cloud->points[x].y) || (bigx > cloud->points[x].x && bigy < cloud->points[x].y))
+		if ((bigx < cloud->points[x].x && bigy < cloud->points[x].y) || (bigx > cloud->points[x].x && bigy > cloud->points[x].y))
 		{
 			bigx = cloud->points[x].x;
 			bigy = cloud->points[x].y;
@@ -161,7 +161,6 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr scanAxis (pcl::PointCloud<pcl::PointXYZ>::Pt
 
 int main(int argc, char** argv)
 {
-
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr plane(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr plane_out(new pcl::PointCloud<pcl::PointXYZ>);
@@ -170,29 +169,45 @@ int main(int argc, char** argv)
 
 	copyPointCloud(*cloud, *plane);
 
+	/*int temp_i = cloud->points.size() - 1;
+	for (int i = 0; i < 20000; i++)
+	{
+		cout << i << endl;
+		pcl::PointXYZ temp;
+		temp.x = (cloud->points[i].x + cloud->points[i + 1].x) / 2;
+		temp.y = (cloud->points[i].y + cloud->points[i + 1].y) / 2;
+		temp.z = 0;
+
+		cloud->push_back(temp);
+	}*/
+
 	plane = quarterLiers(cloud);
 	plane_out = scanAxis(cloud);
 
 	cout << "returned cloud size " << plane_out->points.size() << endl;
 	
-	for (int i = 0; i < plane->points.size(); i++)
+	/*for (int i = 0; i < plane->points.size(); i++)
 	{
 		for  (int j = 0; j < plane_out->points.size(); j++)
 		{
-			if ((plane->points[i].x == plane_out->points[j].x) && (plane->points[i].y == plane_out->points[j].y))
-			{
-				plane_out->points.erase(plane_out->points.begin() + j);
-				true;
-			}
+			if ((plane->points[i].x == plane_out->points[j].x) && (plane->points[i].y == plane_out->points[j].y))// {
+				//true;
+			//} 
+			{	plane_out->points.erase(plane_out->points.begin() + j);	}
 		}
-	}
+	}*/
 	
-	cout << "size: " << plane_out->points.size() << endl;
+	//cout << "size: " << plane_out->points.size() << endl;
 
 	pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 	viewer.setBackgroundColor(0.0, 0.0, 0.0);
 	//viewer.addPointCloud<pcl::PointXYZ> (plane, "sample cloud");
-	viewer.addPointCloud<pcl::PointXYZ>(plane_out, "sample plane");
+	viewer.addPointCloud<pcl::PointXYZ>(plane, "sample plane");
+	viewer.addPointCloud<pcl::PointXYZ>(plane_out, "sample plane two");
+	/*viewer.addLine(plane_out->points[0], plane_out->points[1], 1, 0, 0, "uhhhh");
+	viewer.addLine(plane_out->points[1], plane_out->points[2], 0, 1, 0, "palne");
+	viewer.addLine(plane_out->points[2], plane_out->points[3], 0, 0, 1, "dfka");
+	viewer.addLine(plane_out->points[3], plane_out->points[4], 1, 1, 1, "ol");*/
 	viewer.addCoordinateSystem(0.1);
 
 	while (!viewer.wasStopped())
