@@ -1,9 +1,9 @@
 #include <pcl/range_image/range_image.h>
 #include <math.h>
+#include <vector>
 #include <ctime>
 #include <cstdlib>
 #include <Eigen/Dense>
-//#include <pcl/io/eigen.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/integral_image_normal.h>
@@ -21,6 +21,7 @@
 using namespace std;
 using Eigen::MatrixXd;
 
+
 int main (int argc, char** argv) {
       srand (static_cast <unsigned> (time(0)));
       // load point cloud
@@ -28,11 +29,6 @@ int main (int argc, char** argv) {
 
       pcl::io::loadPCDFile ("concaveboi.pcd", *cloud); //prev: hulltest.pdc
       cout << "Point cloud size: " << cloud->points.size() << endl;
-      MatrixXd d;
-      d = MatrixXd::Random(5,5);
-      Vector
-      cout << d << endl;
-
 
       pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
       ne.setViewPoint (1, 2, 4); //Set initial viewpoint
@@ -57,14 +53,17 @@ int main (int argc, char** argv) {
       // Try out different pairs, looking for the longest distance between them
       float longest = 0.0;
       float len = 0.0;
+      float xdist = 0.0;
+      float ydist = 0.0;
+      float zdist = 0.0;
       int idx1 = 0;
       int idx2 = 0;
 
       for (int i = 0; i < cloud->points.size() / 2; i++)
       {
-            float xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i].x;
-            float ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i].y;
-            float zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i].z;
+            xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i].x;
+            ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i].y;
+            zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i].z;
             len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
 
             if (len>longest)
@@ -80,15 +79,15 @@ int main (int argc, char** argv) {
             if ((i % 2) && (cloud->points.size() / 2 + i + 10 <= cloud->points.size())
                   && (cloud->points.size() / 2 + i + 10 >= 0))
             {
-                  float xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i + 10].x;
-                  float ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i + 10].y;
-                  float zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i + 10].z;
+                  xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i + 10].x;
+                  ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i + 10].y;
+                  zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i + 10].z;
                   len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
             }
             else {
-                  float xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i - 10].x;
-                  float ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i - 10].y;
-                  float zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i - 10].z;
+                  xdist = cloud->points[i].x - cloud->points[cloud->points.size() / 2 + i - 10].x;
+                  ydist = cloud->points[i].y - cloud->points[cloud->points.size() / 2 + i - 10].y;
+                  zdist = cloud->points[i].z - cloud->points[cloud->points.size() / 2 + i - 10].z;
                   len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
             }
 
@@ -110,36 +109,14 @@ int main (int argc, char** argv) {
       cout << "The longest line goes between points [" << idx1 << "," << idx2
              << "] and has length: " << longest << endl;
 
-      //////////////////////////////////////////////////////////////////////////////////////
-      // Create the segmentation object 
-      /*
-      pcl::SACSegmentation<pcl::PointXYZ> seg;
-      seg.setModelType (pcl::SACMODEL_LINE);
-      seg.setMethodType (pcl::SAC_RANSAC);
-      seg.setDistanceThreshold (0.03);
-      seg.setInputCloud (cloud); 
-      seg.segment (*inliers, *line_coefficients);
-      /*const auto line_x = line_coefficients->values[0] = cloud->points[idx1].x;
-      const auto line_y = line_coefficients->values[1] = cloud->points[idx1].y;
-      const auto line_z = line_coefficients->values[2] = cloud->points[idx1].z;
-      
-      float direc_x = line_coefficients->values[0] = cloud->points[idx2].x - cloud->points[idx1].x;
-      float direc_y = line_coefficients->values[1] = cloud->points[idx2].y - cloud->points[idx1].y;
-      float direc_z = line_coefficients->values[2] = cloud->points[idx2].z - cloud->points[idx1].z;
-      */
-      //cout << "line x = " << line_x << " line y = " << line_y << " line z = " << line_z << endl;
-      //cout << "direction x = " << direc_x << " direction y = " << direc_y << " direction z = " << direc_z << endl;
-      
-
       /////////////////////////////////////////////////////////////////////////////////
       // Placing the cut based on: thickness increase. Stochastic skeletonization
-      float segmentLength = longest/20;
-      int iterations = 5;
-      int next = 1;
-      int idx3;
-      int idx4;
-      float coordArr[20][3];
-
+      int iterations = 5; //nr of randomized coordinates pr segment
+      int seg = 20; //nr of segments
+      float segLen = longest/seg;
+      int idx3; //nearest point to a randomized coord
+      int idx4; //nearest point opposite from idx3
+      float coordArr[20][3]; //stores
 
       //Pick a point at the end of the leg, where the skeletonization starts
       coordArr[0][0] = {cloud->points[idx1].x};
@@ -150,26 +127,29 @@ int main (int argc, char** argv) {
       cout << coordArr[0][1] << endl;
       cout << coordArr[0][2] << endl;
 
+      //Make "points" roughly in the direction of the line
+      float tempArr[iterations][3] = {}; //stores temporary randomized coordinates
+      float LO = 0.5; //lower bound for ra
+      float HI = 2.0; //upper bound for ra
+      float ra; // random number
+      float shortest[iterations]; //dist between opposite points
+      float middiff[iterations]; //difference in distance to left and right nearest points
+      float dist3; //dist to idx 3 from to point
+      float dist4;
 
-      //Make points roughly in the direction of the line
-      float tempArr[iterations][3] = {};
-      float LO = 0.5; //for random generator
-      float HI = 2.0;
-      float ra;
-      float shortest1 = 1;
-      float shortest2 = 1;
+      vector<int> searchSet;
 
 
-      for (int i = 0; i < iterations; i++)
+      for (int i = 0; i < iterations; i++) //generate slightly randomized coordinates
       {
             ra = LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
-            tempArr[i][0] = coordArr[0][0] + segmentLength*(cloud->points[idx2].x - coordArr[0][0])*ra;
+            tempArr[i][0] = coordArr[0][0] + segLen*(cloud->points[idx2].x - coordArr[0][0])*ra;
             
             ra = LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
-            tempArr[i][1] = coordArr[0][1] + segmentLength*(cloud->points[idx2].y - coordArr[0][1])*ra;
+            tempArr[i][1] = coordArr[0][1] + segLen*(cloud->points[idx2].y - coordArr[0][1])*ra;
             
             ra = LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
-            tempArr[i][2] = coordArr[0][2] + segmentLength*(cloud->points[idx2].z - coordArr[0][2])*ra;
+            tempArr[i][2] = coordArr[0][2] + segLen*(cloud->points[idx2].z - coordArr[0][2])*ra;
       }
 
       cout << "proposed next point" << endl;
@@ -182,33 +162,110 @@ int main (int argc, char** argv) {
       {
             for (int point = 0; point < cloud->points.size(); point++) //search for nearest
             {
-                  float xdist = tempArr[i][0] - cloud->points[point].x;
-                  float ydist = tempArr[i][1] - cloud->points[point].y;
-                  float zdist = tempArr[i][2] - cloud->points[point].z;
+                  xdist = tempArr[i][0] - cloud->points[point].x;
+                  ydist = tempArr[i][1] - cloud->points[point].y;
+                  zdist = tempArr[i][2] - cloud->points[point].z;
                   len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
 
-                  if (len<shortest1)
+                  if (len<shortest[i])
                   {
-                        shortest1 = len;
+                        shortest[i] = len;
                         idx3 = point;
                   }
             }
-            //When nearest is found, find opposite nearest
-            
+
+            if (abs(idx3 - idx1)<20) //if nearest point is close to the tip
+            {
+                  if (idx3>idx1) //if nearest point is to the right
+                  {
+                        if ((idx1-idx3)<0) //if the tip is close to idx(0)
+                        {
+                              idx4 = cloud->points.size() - (idx3 - idx1);
+                        }
+                        else
+                        {
+                              idx4 = idx1 - idx3;
+                        }
+                  }
+                  else //if nearest is to the left
+                  {
+                        if ((idx1 + idx3) >= cloud->points.size()) //if the tip is close to idx(0)
+                        {
+                              idx4 = (idx1 - idx3) - (cloud->points.size() - idx3);
+                        }
+                        else
+                        {
+                              idx4 = idx1 + idx3;
+                        }
+                  }
+                  //Calculate distance between the two opposite nearest points
+                        cout << "hellllllooooo" << endl;
+                  xdist = cloud->points[idx4].x - cloud->points[idx3].x;
+                  ydist = cloud->points[idx4].y - cloud->points[idx3].y;
+                  zdist = cloud->points[idx4].z - cloud->points[idx3].z;
+                  shortest[i] = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+            }
+            else //if nearest point is not close to the tip
+            {
+                  shortest[i] = 1.0;
+                  for (int point = 0; point < cloud->points.size(); point++)
+                  {//search for nearest opposite
+                        if (abs(point-idx3)<20)
+                        {
+                              xdist = tempArr[i][0] - cloud->points[point].x;
+                              ydist = tempArr[i][1] - cloud->points[point].y;
+                              zdist = tempArr[i][2] - cloud->points[point].z;
+                              len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+
+                              if (len<shortest[i])
+                              {
+                                    shortest[i] = len;
+                                    idx4 = point;
+                              }
+                        }
+                  }
+            }
+            //calculate how close it is to the center
+            xdist = tempArr[i][0] - cloud->points[idx3].x;
+            ydist = tempArr[i][1] - cloud->points[idx3].y;
+            zdist = tempArr[i][2] - cloud->points[idx3].z;
+            dist3 = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+
+            xdist = tempArr[i][0] - cloud->points[idx4].x;
+            ydist = tempArr[i][1] - cloud->points[idx4].y;
+            zdist = tempArr[i][2] - cloud->points[idx4].z;
+            dist4 = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+
+            middiff[i] = abs(dist3-dist4);
       }
-      //Reapeat
-      /*
-      cout << ra << endl;
-      for (int i = 0; i < 10; ++i)
+      //pick the point that is most in the middle
+
+      float leastdiff = 1.0;
+      for (int i = 0; i < iterations; i++)
       {
-            ra = LO + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(HI-LO)));
-            cout << ra << endl;
-      }*/
+            if (middiff[i]<leastdiff)
+            {
+                  leastdiff = middiff[i];
+            }
+            cout << i << endl;
+      }
+
+
+
+      searchSet = {1,2};
+      cout << searchSet[0] << " " << searchSet[1] << endl;
+      //Reapeat
+
       //Until the width crosses some threshold
 
 
       ////////////////////////////////////////////////////////////////////////////////
       // Placing the cut based on: distance from tip, 180mm
+      /*
+      coordArr[1][0] = cloud->points[idx1].x + 0.18*(cloud->points[idx2].x - cloud.points[idx1].x);
+      coordArr[1][2] = cloud->points[idx1].y + 0.18*(cloud->points[idx2].y - cloud.points[idx1].y);
+      coordArr[1][3] = cloud->points[idx1].z + 0.18*(cloud->points[idx2].z - cloud.points[idx1].z);
+      */
 
 
 
@@ -219,17 +276,22 @@ int main (int argc, char** argv) {
       viewer.setBackgroundColor (0, 0, 0);
       viewer.addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
 
-      for(int i=0; i < cloud->points.size()-1; i++){
-      stringstream ss;
-      ss << i;
-      string str = ss.str();
-      viewer.addLine(cloud->points[i], cloud->points[i+1], 1, 1, 1, str); //Make lines between points
+      for(int i=0; i < cloud->points.size()-1; i++)
+      {
+            stringstream ss;
+            ss << i;
+            string str = ss.str();
+            viewer.addLine(cloud->points[i], cloud->points[i+1], 1, 1, 1, str); //Make lines between points
       }
 
       viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
       viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
+      viewer.addLine(cloud->points[20], cloud->points[160], 1, 0, 0, "a"); //line across leg
+      viewer.addLine(cloud->points[21], cloud->points[159], 1, 0, 0, "b"); //line across leg
+      viewer.addLine(cloud->points[22], cloud->points[158], 1, 0, 0, "c"); //line across leg
+      viewer.addLine(cloud->points[idx3], cloud->points[idx4], 1, 0, 0, "d"); //line across leg
 
-      //viewer.addLine(normals->points[0], normals->points[normals->points.size()-1], 1,0 ,0, "p");
+
       while(!viewer.wasStopped ())
       {
       viewer.spinOnce ();
