@@ -1,4 +1,4 @@
-#include "stdafx.h"
+//#include "stdafx.h"
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <iostream>
@@ -50,6 +50,7 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr scanAxis (pcl::PointCloud<pcl::PointXYZ>::Pt
 	const int SCALE_SIZE = 1000;
 	const int INTERVAL_SIZE = 5;
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_return (new pcl::PointCloud<pcl::PointXYZ>);
+
 	float minx = cloud->points[0].x;
 	float miny = cloud->points[0].y;
 	float maxx = minx;
@@ -159,11 +160,98 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr scanAxis (pcl::PointCloud<pcl::PointXYZ>::Pt
 	return cloud_return;
 }
 
+pcl::PointCloud<pcl::PointXYZ>::Ptr smooth (pcl::PointCloud<pcl::PointXYZ>::Ptr plane_out)
+{
+	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_final (new pcl::PointCloud<pcl::PointXYZ>);
+
+	double minx = plane_out->points[0].x;
+	double miny = plane_out->points[0].y;
+	double maxx = minx;
+	double maxy = miny;
+
+	//Find min x and y values
+	for (int i = 1; i < plane_out->size(); i++)
+	{
+		if (plane_out->points[i].x < minx) { minx = plane_out->points[i].x; }
+		else if (plane_out->points[i].x > maxx) { maxx = plane_out->points[i].x; };
+		if (plane_out->points[i].y < miny) { miny = plane_out->points[i].y; }
+		else if (plane_out->points[i].y > maxy) { maxy = plane_out->points[i].y; };
+
+		//cout << "minx = " << minx << " miny = " << miny << " maxx = " << maxx << " maxy = " << maxy << endl;
+	}
+
+	//Scan x axis for max and min values for each point
+	//for (int i = minx; i < maxx - 1; i++)
+	//{
+		vector <pcl::PointXYZ> value_listx;
+		//cout << i << endl;
+		//Iterate through the interval and choose 2 values
+		for (int j = 0; j < plane_out->points.size(); j++)
+		{
+			//Save the points, located in the interval to a vector
+			if ((plane_out->points[j].x >= minx) && (plane_out->points[j].x <= minx + 1))
+			{
+				value_listx.push_back(plane_out->points[j]);
+				//cout << value_listx.size() << endl;
+			}
+		//}
+
+		cout << value_listx.size() << endl;
+
+		//Pick max and min value points and save them to the return cloud
+		double i_miny = 0;
+		double i_maxy = 0;
+
+		for (int k = 1; k < value_listx.size(); k++)
+		{
+			if (value_listx.at(i_miny).y > value_listx.at(k).y) { i_miny = k; }
+			if (value_listx.at(i_maxy).y < value_listx.at(k).y) { i_maxy = k; }
+		}
+
+		//Pushback found points
+		cloud_final->push_back(value_listx.at(i_miny));
+		cloud_final->push_back(value_listx.at(i_maxy));
+	}
+
+	//Scan y axis for max and min values for each point
+	//for (int i = miny; i < maxy - 1; i++)
+	//{
+	
+		vector <pcl::PointXYZ> value_listy;
+		//Iterate through the interval and choose 2 values
+		for (int j = 0; j < plane_out->points.size(); j++)
+		{
+			//Save the points, located in the interval to a vector
+			if ((plane_out->points[j].y >= miny) && (plane_out->points[j].y <= miny + 1))
+			{
+				value_listy.push_back(plane_out->points[j]);
+			}
+		//}
+
+		//Pick max and min value points and save them to the return cloud
+		double i_minx = 0;
+		double i_maxx = 0;
+
+		for (int k = 1; k < value_listy.size(); k++)
+		{
+			if (value_listy.at(i_minx).x > value_listy.at(k).x) { i_minx = k; }
+			if (value_listy.at(i_maxx).x < value_listy.at(k).x) { i_maxx = k; }
+		}
+
+		//Pushback found points
+		cloud_final->push_back(value_listy.at(i_minx));
+		cloud_final->push_back(value_listy.at(i_maxx));
+	}
+
+	return cloud_final;
+}
+
 int main(int argc, char** argv)
 {
 	pcl::PointCloud<pcl::PointXYZ>::Ptr cloud(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr plane(new pcl::PointCloud<pcl::PointXYZ>);
 	pcl::PointCloud<pcl::PointXYZ>::Ptr plane_out(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr plane_please_work(new pcl::PointCloud<pcl::PointXYZ>);
 
 	pcl::io::loadPCDFile <pcl::PointXYZ>("goodiethesecond.pcd", *cloud);
 
@@ -177,14 +265,16 @@ int main(int argc, char** argv)
 		temp.x = (cloud->points[i].x + cloud->points[i + 1].x) / 2;
 		temp.y = (cloud->points[i].y + cloud->points[i + 1].y) / 2;
 		temp.z = 0;
-
 		cloud->push_back(temp);
 	}*/
 
-	plane = quarterLiers(cloud);
+	//plane = quarterLiers(cloud);
 	plane_out = scanAxis(cloud);
+	//copyPointCloud(*plane_out, *plane_please_work);
+	plane_please_work = smooth(plane_out);
 
-	cout << "returned cloud size " << plane_out->points.size() << endl;
+
+	cout << "returned cloud size " << plane_please_work->points.size() << endl;
 	
 	/*for (int i = 0; i < plane->points.size(); i++)
 	{
@@ -198,12 +288,13 @@ int main(int argc, char** argv)
 	}*/
 	
 	//cout << "size: " << plane_out->points.size() << endl;
-
+//pcl::PCDWriter writer;
+//  writer.write ("emptyshell.pcd", *plane_out, false);
 	pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 	viewer.setBackgroundColor(0.0, 0.0, 0.0);
 	//viewer.addPointCloud<pcl::PointXYZ> (plane, "sample cloud");
-	viewer.addPointCloud<pcl::PointXYZ>(plane, "sample plane");
-	viewer.addPointCloud<pcl::PointXYZ>(plane_out, "sample plane two");
+	//viewer.addPointCloud<pcl::PointXYZ>(plane, "sample plane");
+	viewer.addPointCloud<pcl::PointXYZ>(plane_please_work, "sample plane two");
 	/*viewer.addLine(plane_out->points[0], plane_out->points[1], 1, 0, 0, "uhhhh");
 	viewer.addLine(plane_out->points[1], plane_out->points[2], 0, 1, 0, "palne");
 	viewer.addLine(plane_out->points[2], plane_out->points[3], 0, 0, 1, "dfka");
