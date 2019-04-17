@@ -1,3 +1,0 @@
-/home/marton/Desktop/pcl/ply_read/CMakeFiles/edit_cache.dir
-/home/marton/Desktop/pcl/ply_read/CMakeFiles/rebuild_cache.dir
-/home/marton/Desktop/pcl/ply_read/CMakeFiles/ply_read.dir
