@@ -8,9 +8,6 @@ vector <int> intersectingSegments(int longa, int longb, int shorta[], int shortb
     vector <int> foundSegments;
     for (int i = 0; i < size; i++)
     {
-        //float I1 [2] = {min(cloud->points[longa].x, cloud->points[longb].x), max(cloud->points[longa].x, cloud->points[longb].x)};
-        //float I2 [2] = {min(cloud->points[i].x, cloud->points[i+1].x), max(cloud->points[i].x, cloud->points[i+1].x)};
-
         float A1 = (cloud->points[longa].y - cloud->points[longb].y) / (cloud->points[longa].x - cloud->points[longb].x);
         float A2 = (cloud->points[shorta[i]].y - cloud->points[shortb[i]].y) / (cloud->points[shorta[i]].x - cloud->points[shortb[i]].x);
         float b1 = cloud->points[longa].y - A1 * cloud->points[longa].x;
