@@ -3,7 +3,7 @@
 
 using namespace std;
 
-vector <int> intersectingSegments(int longa, int longb, int shorta[], int shortb[], int size)
+vector <int> intersectingSegments(int longa, int longb, int shorta[], int shortb[], int size, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
 {
     vector <int> foundSegments;
     for (int i = 0; i < size; i++)
