@@ -1,9 +1,11 @@
 #include <pcl/range_image/range_image.h>
 #include <math.h>
-//#include <vector>
+#include <vector>
+#include <algorithm>
 //#include <ctime>
 //#include <cstdlib>
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
 #include <pcl/features/integral_image_normal.h>
@@ -20,6 +22,33 @@
 
 using namespace std;
 using namespace Eigen;
+
+bool intersectingSegments(int longa, int longb, int shorta, int shortb, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
+{
+    float A1 = (cloud->points[longa].y - cloud->points[longb].y) / (cloud->points[longa].x - cloud->points[longb].x);
+    float A2 = (cloud->points[shorta].y - cloud->points[shortb].y) / (cloud->points[shorta].x - cloud->points[shortb].x);
+    float b1 = cloud->points[longa].y - A1 * cloud->points[longa].x;
+    float b2 = cloud->points[shorta].y - A2 * cloud->points[shorta].x;
+
+    if (A1 == A2)
+    {
+        return false;
+    } //parallel segments
+
+    float Xa = (b2 - b1) / (A1 - A2);
+
+    if (Xa < max(min(cloud->points[longa].x, cloud->points[longb].x),
+        min(cloud->points[shorta].x, cloud->points[shortb].x)) ||
+        (Xa > min(max(cloud->points[longa].x, cloud->points[longb].x),
+        max(cloud->points[shorta].x, cloud->points[shortb].x))))
+    {
+        return false;
+    } // Intersection out of bound
+    else
+    {
+        return true;
+    }
+}
 
 int main (int argc, char** argv) {
 srand (static_cast <unsigned> (time(0)));
@@ -79,7 +108,6 @@ for (int i = 0; i < cloud->points.size()/2; i++)
         }
     }
 }
-
 cout << "The longest line found goes between points [" << idx1 << "," << idx2
      << "] and has length: " << longest << endl;
 
@@ -157,94 +185,111 @@ for (int i = 0; i < iterations; i++)
         }
     }
 }
-
-// Disregard lines that don't cross the middle
-/////////////////////////////////////////////////////
-//  Here we need to check if the lines cross the middle
-/////////////////////////////////////////////////////
-
-
-
-
-
-//Matrix<float, 1, 2> m1;
-Vector3f m1, m2;
-m2 <<   cloud->points[idx2].x - cloud->points[idx1].x,
-        cloud->points[idx2].y - cloud->points[idx1].y,
-        cloud->points[idx2].z - cloud->points[idx1].z;
-
-
-
+// Disregard lines that don't cross longest line. Make new vector w/ only relevant
+std::vector<int> relevant;
 for (int i = 0; i < iterations; i++)
 {
-    /*
-    across[0] = cloud->points[idx3[i]].x - cloud->points[idx4[i]].x;
-    across[1] = cloud->points[idx3[i]].x - cloud->points[idx4[i]].x;
-    across[2] = cloud->points[idx3[i]].x - cloud->points[idx4[i]].x;*/
-
-    m2 <<   cloud->points[idx3[i]].x - cloud->points[idx4[i]].x,
-            cloud->points[idx3[i]].y - cloud->points[idx4[i]].y,
-            cloud->points[idx3[i]].z - cloud->points[idx4[i]].z;
-
-    //MatrixXf m3 = m1.transpose() * m2;
-    float m4 = m1.transpose() * m2;
-
-    if (abs(m4)<0.01)
+    if (intersectingSegments(idx1, idx2, idx3[i], idx4[i], cloud))
     {
-        cout << "Angle for idx: " << i << "is small" << endl;
+        relevant.push_back(i);
     }
+    //cout << "Line: " << i << " does: [" << maybe << "] cross" << endl; 
 }
-
-
-/*
-m2 <<   cloud->points[idx3[3]].x - cloud->points[idx4[3]].x,
-            cloud->points[idx3[3]].x - cloud->points[idx4[3]].x,
-            cloud->points[idx3[3]].x - cloud->points[idx4[3]].x;
-            */
-
-//MatrixXf m3 = m1.transpose() * m2;
-
-
-cout << "m1: " << m1 << endl;
-cout << "m2: " << m2 << endl;
-//cout << "m3 : " << m3 << endl;
-
-
+for (int i = 0; i < relevant.size(); i++)
+{
+    cout << "relevant: [" << relevant[i] << "]" << endl;
+}
 
 // Calculate average distance between idx3 and idx4 pairs
 float avg;
 float sum = 0.0;
-for (int i = 0; i < iterations; i++)
+for (int i = 0; i < relevant.size(); i++)
 {
+    if (relevant[i])
+    {
+        /* code */
+    }
     sum += shortest[i];
 }
 avg = sum/iterations;
-cout << "avg length: " << avg << endl;
+cout << "Average length across: " << avg << endl;
 
 ////////////////////////////////////////////////////////////////////////////////
-// Placing the cut based on: distance from tip, 180mm
+// Placing the cut based on: distance from tip, 0.18m
 
+//Calculate angles 
+Vector3f vec1, vec2;
+vec1 << cloud->points[idx2].x - cloud->points[idx1].x,
+        cloud->points[idx2].y - cloud->points[idx1].y,
+        cloud->points[idx2].z - cloud->points[idx1].z;
+cout << vec1 << endl;
 
+vec1 = vec1.normalized();
+cout << vec1 << endl;
 
-/*
-for(int j = 0; j < iterations; j++)
+float angle;
+for (int i = 0; i < iterations; i++)
 {
-      cout << "idx3[" << j << "]: " << idx3[j] << endl;
-      cout << "idx4[" << j << "]: " << idx4[j] << endl;
+    vec2 << cloud->points[idx3[i]].x - cloud->points[idx4[i]].x,
+            cloud->points[idx3[i]].y - cloud->points[idx4[i]].y,
+            cloud->points[idx3[i]].z - cloud->points[idx4[i]].z;
+    vec2 = vec2.normalized();
+    
+    float dotp = vec1.transpose() * vec2;
+    angle = acos(dotp) * 180/3.14159265; //angle in deg
+
+    cout << "angle " << i << " is: " << angle << endl;
 }
 
-for(int j = 0; j < iterations; j++)
+//coordinates where the cut should be
+float fix1, fix2;
+float cutCoord[3] = {};
+cutCoord[0] = cloud->points[idx2].x + vec1(0)*0;
+cutCoord[1] = cloud->points[idx2].y + vec1(1)*0;
+cutCoord[2] = cloud->points[idx2].z + vec1(2)*0;
+
+//nearest point on one side
+float cutWidth = 1.0;
+for (int point = 0; point < cloud->points.size()/2; point++)
 {
-      cout << "shortest[" << j << "]: " << shortest[j] << endl;
+    xdist = cutCoord[0] - cloud->points[point].x;
+    ydist = cutCoord[1] - cloud->points[point].y;
+    zdist = cutCoord[2] - cloud->points[point].z;
+    len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+
+    if (len<cutWidth)
+    {
+        fix1 = point;
+    }
 }
-*/
+
+//nearest point to that side
+cutWidth = 1.0;
+for (int point = 0; point < cloud->points.size(); point++)
+{
+    if (abs(point-fix1)>30)
+    {
+        xdist = cloud->points[fix1].x - cloud->points[point].x;
+        ydist = cloud->points[fix1].y - cloud->points[point].y;
+        zdist = cloud->points[fix1].z - cloud->points[point].z;
+        len = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
+
+        if (len<cutWidth)
+            {
+                cutWidth = len;
+                fix2 = point;
+            }
+    }
+}
+cout << "Cut at fixed 18cm has width: " << cutWidth << endl;
+cout << "Fixed cut has idxs: [" << fix1 << ", " << fix2 << "]" << endl;
 
 ///////////////////////////////////////////////////////////////////////////////
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 viewer.setBackgroundColor (0, 0, 0);
 viewer.addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
 
-for(int j = 0; j < iterations; j++)
+for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
 {
       stringstream ss;
       ss << j;
@@ -254,6 +299,7 @@ for(int j = 0; j < iterations; j++)
 
 viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
 viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
+viewer.addLine(cloud->points[fix1], cloud->points[fix2], 1, 1, 0, "fixedLength"); //18cm line
 
 while(!viewer.wasStopped ())
 {
