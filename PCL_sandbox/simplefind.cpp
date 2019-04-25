@@ -307,3 +307,13 @@ while(!viewer.wasStopped ())
 }
 return 0;
 }
+
+/*
+for(int i=0; i < cloud->points.size()-1; i++)
+{
+      stringstream ss;
+      ss << i;
+      string str = ss.str();
+      viewer.addLine(cloud->points[i], cloud->points[i+1], 1, 1, 1, str); //Make lines between points of the leg
+}
+*/
