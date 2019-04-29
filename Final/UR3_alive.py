@@ -30,11 +30,9 @@ def listener():
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
                'wrist_1_joint', 'wrist_2_joint', 'wrist_3_joint']
 
-"""
-Q1 = [2.2,0,-1.57,0,0,0]
+#Q1 = [2.2,0,-1.57,0,0,0]
 Q2 = [1.5,0,-1.57,0,0,0]
-Q3 = [1.5,-0.2,-1.57,0,0,0]
-"""
+#Q3 = [1.5,-0.2,-1.57,0,0,0]
 
 client = None
 
@@ -96,7 +94,7 @@ def move_repeated():
             g.trajectory.points.append(
                 JointTrajectoryPoint(positions=Q0, velocities=[0]*6, time_from_start=rospy.Duration(d)))
             d += 1
-            g.tryrajectory.points.append(
+            g.trajectory.points.append(
                 JointTrajectoryPoint(positions=Q2, velocities=[0]*6, time_from_start=rospy.Duration(d)))
             d += 1
             """

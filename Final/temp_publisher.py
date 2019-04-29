@@ -10,7 +10,8 @@ def talker():
     while not rospy.is_shutdown():
         #hello_str = "hello world %s" % rospy.get_time()
         #rospy.loginfo(hello_str)
-        hello_str = [2.2,0,-1.57,0,0,0]
+        hello_str = Float32MultiArray()
+        hello_str.data = [2.2,0,-1.57,0,0,0]
         pub.publish(hello_str)
         rate.sleep()
 
