@@ -24,7 +24,7 @@ def listener():
     # anonymous=True flag means that rospy will choose a unique
     # name for our 'listener' node so that multiple listeners can
     # run simultaneously.
-    rospy.init_node('listener', anonymous=True)
+    #rospy.init_node('listener', anonymous=True)
     rospy.Subscriber("position", Float32MultiArray, callBack)
 
 JOINT_NAMES = ['shoulder_pan_joint', 'shoulder_lift_joint', 'elbow_joint',
@@ -157,9 +157,9 @@ def main():
             prefix = str(parameters)[index+len("prefix': '"):(index+len("prefix': '")+str(parameters)[index+len("prefix': '"):-1].find("'"))]
             for i, name in enumerate(JOINT_NAMES):
                 JOINT_NAMES[i] = prefix + name
-        if (position != None):
+        if (Q0 != None):
             print "This program makes the robot move between the following three poses:"
-            #print str([Q1[i]*180./pi for i in xrange(0,6)])
+            #print str([Q1[i]*180./pi for ti in xrange(0,6)])
             #print str([Q2[i]*180./pi for i in xrange(0,6)])
             #print str([Q3[i]*180./pi for i in xrange(0,6)])
             print "Please make sure that your robot can move freely between these poses before proceeding!"
@@ -169,8 +169,8 @@ def main():
                 move_repeated()
                 #move_disordered()
                 #move_interrupt()
-        else:
-            print "Halting program"
+            else:
+                print "Halting program"
     except KeyboardInterrupt:
         rospy.signal_shutdown("KeyboardInterrupt")
         raise
