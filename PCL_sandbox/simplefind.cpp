@@ -2,8 +2,6 @@
 #include <math.h>
 #include <vector>
 #include <algorithm>
-//#include <ctime>
-//#include <cstdlib>
 #include <Eigen/Dense>
 #include <Eigen/Geometry>
 #include <pcl/io/io.h>
@@ -22,33 +20,6 @@
 
 using namespace std;
 using namespace Eigen;
-
-bool intersectingSegments(int longa, int longb, int shorta, int shortb, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud)
-{
-    float A1 = (cloud->points[longa].y - cloud->points[longb].y) / (cloud->points[longa].x - cloud->points[longb].x);
-    float A2 = (cloud->points[shorta].y - cloud->points[shortb].y) / (cloud->points[shorta].x - cloud->points[shortb].x);
-    float b1 = cloud->points[longa].y - A1 * cloud->points[longa].x;
-    float b2 = cloud->points[shorta].y - A2 * cloud->points[shorta].x;
-
-    if (A1 == A2)
-    {
-        return false;
-    } //parallel segments
-
-    float Xa = (b2 - b1) / (A1 - A2);
-
-    if (Xa < max(min(cloud->points[longa].x, cloud->points[longb].x),
-        min(cloud->points[shorta].x, cloud->points[shortb].x)) ||
-        (Xa > min(max(cloud->points[longa].x, cloud->points[longb].x),
-        max(cloud->points[shorta].x, cloud->points[shortb].x))))
-    {
-        return false;
-    } // Intersection out of bound
-    else
-    {
-        return true;
-    }
-}
 
 int main (int argc, char** argv) {
 srand (static_cast <unsigned> (time(0)));
@@ -184,42 +155,16 @@ for (int i = 0; i < iterations; i++)
         }
     }
 }
-//////////////////////////////////////////////////////////////////////////////////
-// Disregard lines that don't cross longest line. Make new vector w/ only relevant
-/*
-std::vector<int> relVec; //which lines are relevant
-int cross = 0; //How many are relevant
-for (int i = 0; i < iterations; i++)
-{
-    if (intersectingSegments(idx1, idx2, idx3[i], idx4[i], cloud))
-    {
-        relVec.push_back(i+1);
-        cross++;
-    }
-    else
-    {
-        relVec.push_back(0);
-    }
-    //cout << "Line: " << i << " does: [" << maybe << "] cross" << endl; 
-}
-*/
-/*
-for (int i = 0; i < relVec.size(); i++)
-{
-    cout << "relVec: [" << relVec[i] << "]" << endl;
-}
-*/
-
 /////////////////////////////////////////////////////////////////////////////////
-// Discriminate lines based on angle // Calculate angles 
+// Discriminate lines based on angle // Calculate angles
 Vector3f vec1, vec2;
 vec1 << cloud->points[idx2].x - cloud->points[idx1].x,
         cloud->points[idx2].y - cloud->points[idx1].y,
         cloud->points[idx2].z - cloud->points[idx1].z;
 vec1 = vec1.normalized(); // vector version of the longest line (green)
 
-std::vector<int> relVec; //which lines are relevant
-uint cross = 0; //How many lines are valid
+std::vector<int> relVec; //only valid lines 
+uint valCount = 0; //How many lines are valid
 float angle[iterations] = {}; //Angles of the lines
 for (int i = 0; i < iterations; i++)
 {
@@ -231,73 +176,82 @@ for (int i = 0; i < iterations; i++)
     float dotp = vec1.transpose() * vec2;
     angle[i] = acos(dotp) * 180/3.14159265; //angle in deg
 
-    if (abs(angle[i] - 90) < 30)
+    if (abs(angle[i] - 90) < 35) //accept a diff of up to x deg
     {
         relVec.push_back(i+1); //positive indicates valid line
-        cross++; // count valid lines
+        valCount++; // count valid lines
     }
     else
     {
         relVec.push_back(0); // 0 indicates invalid line
     }
-    cout << "angle " << i << " is: " << angle[i] << endl;
+    //cout << "angle " << i << " is: " << angle[i] << endl;
 }
 
-
-//Make new array with only the relevant lines
-float relShort[cross] = {};
+//Make new array with only valid lines
+float relShort[valCount] = {}; //lengths of valid lines
 uint relcount = 0;
 for (int i = 0; i < iterations; i++)
 {
-    if (relVec[i])
+    if (relVec[i]) //if this index's line is valid
     {
         relShort[relcount] = shortest[i];
         relcount++;
     }
 }
 
-for (int i = 0; i < cross; ++i)
+for (int i = 0; i < valCount; ++i)
 {
     cout << "relShort [" << i << "] has value: " << relShort[i] << endl;
 }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness //
-// Simple version // Find local minimum, starting from the middle
-int minIdx = cross/2;
+// Find local minimum, starting from the middle
+uint minIdx = valCount/2 + 10;
 bool minFound = 0;
-int check = 3;
-int dir = 0;
+uint minTries = 0;
+uint check = 5;
+int dir = 1;
 while(!minFound)
 {
     if (relShort[minIdx]>relShort[minIdx-1])
     {
         minIdx--;
         dir = -1;
+        cout << "minus" << endl;
     }
     else if (relShort[minIdx]>relShort[minIdx+1])
     {
         minIdx++;
         dir = 1;
+        cout << "plus" << endl;
     }
     else if (relShort[minIdx]<relShort[minIdx+1] && relShort[minIdx]<relShort[minIdx-1])
     {
+        cout << "Possible min at: " << minIdx << endl;
         for (int i = 1; i <= check; i++)
         {
             if (relShort[minIdx + i*dir] < relShort[minIdx])
             {
                 minIdx = minIdx + i*dir;
-                i = check + 1;
-                dir = 0;
+                i = check;
             }
         }
-        if (dir)
+        if (!dir)
         {
             minFound = true;
+            cout << "Found min: [" << minIdx << "] with value: [" << relShort[minIdx] << "]" << endl;
         }
-        cout << "Found min: [" << minIdx << "] with value: [" << relShort[minIdx] << "]" << endl;
-        break;
+        if (minTries < 1)
+        {
+            dir = -dir;
+            minTries++;
+        }
+        else
+        {
+            dir = 0;
+        }
     }
     else 
     {
@@ -306,94 +260,35 @@ while(!minFound)
     }
 }
 
-
-/*
-//Find 3 local minima
-int minIdx = cross/2;
-int minsFound = 0;
-int foundMins[3] = {};
-int minTries = 0;
-int searched[2] = {minIdx,minIdx}; //upper and lower bounds that have already been searched
-while(minsFound<3)
-{
-    if (minTries > 500) //if the program is stuck
-    {
-        cout << "The program is stuck" << endl;
-        break;
-    }
-    else if (relShort[minIdx]<relShort[minIdx+1] && relShort[minIdx]<relShort[minIdx-1])
-    {
-        foundMins[minsFound] = minIdx;
-        minsFound++;
-        minTries = 0;
-        cout << "Found min: [" << minIdx << "] with value: [" << relShort[minIdx] << "]" << endl;
-        if (minsFound == 1)
-        {
-            minIdx = cross * (3/4);
-        }
-        else
-        {
-            minIdx = cross * (1/4);
-        }
-    }
-    else if (relShort[minIdx]>relShort[minIdx-1])
-    {
-        minIdx--;
-        searched[0]--;
-        minTries++;
-    }
-    else if (relShort[minIdx]>relShort[minIdx+1])
-    {
-        minIdx++;
-        searched[1]++;
-        minTries++;
-    }
-    else
-    {
-        cout << "Error in finding minimum!" << endl;
-        break;
-    }
-}
-*/
-
-/*
-//Sorting approach: bubble
-int flag = 1;    // set flag to 1 to start first pass
-int temp;        // holding variable
-int numLength = num.length();
-for(int i = 1; (i <= cross) && flag; i++)
-{
-    flag = 0;
-    for (int j=0; j < (cross - 1); j++)
-    {
-        if (relShort[j+1] > relShort[j])      // ascending order simply changes to <
-        { 
-            temp = relShort[j];             // swap elements
-            num[j] = relShort[j+1];
-            relShort[j+1] = temp;
-            flag = 1;               // indicates that a swap occurred.
-        }
-    }
-}
-*/
-
-// Calculate average distance between idx3 and idx4 pairs
-float avg;
-float sum = 0.0;
+// Go from minIdx back to real idx of local minimum
+uint finIdx = 0;
 for (int i = 0; i < iterations; i++)
 {
     if (relVec[i])
     {
-        sum += shortest[i];
+        finIdx++;
+    }
+    if (finIdx == minIdx + 1)
+    {
+        finIdx = i;
+        i = iterations;
     }
 }
-avg = sum/cross;
-cout << "Average length across: " << avg << endl;
-cout << cross << endl;
+
+cout << "Min has original idx: [" << finIdx << "] with value: [" << shortest[finIdx] << "]" << endl;
+
+// Output concluded end effector pose
+
+class Pose {
+    float position[3];
+    float orientation[3];
+public:
+    set_values()
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: distance from tip, 0.18m
-
 //coordinates where the cut should be
 float fix1, fix2;
 float cutCoord[3] = {0.0};
@@ -457,10 +352,17 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
     stringstream ss;
     ss << j;
     string str = ss.str();
-    //if (relVec[j])
-    //{
-        viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 1, 0, 0, str); //between points
-    //}
+    if (relVec[j])
+    {
+        if (j == finIdx) //concluded index
+        {
+            viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 0, 1, 0, str); //concluded line
+        }
+        else
+        {
+            viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 1, 0, 0, str); //between points
+        }
+    }
 }
 
 viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
@@ -473,30 +375,3 @@ while(!viewer.wasStopped ())
 }
 return 0;
 }
-
-/*
-//Simple version
-//Find local minimum, starting from the middle
-int minIdx = cross/2;
-bool minFound = 0;
-while(!minFound)
-{
-    if (relShort[minIdx]<relShort[minIdx+1] && relShort[minIdx]<relShort[minIdx-1])
-    {
-        minFound = true;
-        cout << "Found min: [" << minIdx << "] with value: [" << relShort[minIdx] << "]" << endl;
-    }
-    else if (relShort[minIdx]>relShort[minIdx-1])
-    {
-        minIdx--;
-    }
-    else if (relShort[minIdx]>relShort[minIdx+1])
-    {
-        minIdx++;
-    }
-    else
-    {
-        cout << "Error in finding minimum!" << endl;
-    }
-}
-*/
