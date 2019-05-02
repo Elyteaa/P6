@@ -19,7 +19,13 @@
 #include <pcl/segmentation/sac_segmentation.h>
 
 using namespace std;
-using namespace Eigen;
+// Refine estimate combination
+// Finish tool orientation
+// Implement in ROS
+// Integrate everything
+
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
 
 class Pose {
 private:
@@ -27,22 +33,80 @@ private:
     float orientation[3];
 
 public:
-    
-    void set_values(){
-        cout << "hello class" << endl;
+void set_values(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
+cout << "hello class" << endl;
+// make the point indicating position
+float dist1 = Dist(cloud, start1);
+float dist2 = Dist(cloud, end1);
+if (dist1<dist2)
+{
+    position[0] = cloud->points[start1].x + (cloud->points[end1].x - cloud->points[start1].x)/2;
+    position[1] = cloud->points[start1].y + (cloud->points[end1].y - cloud->points[start1].y)/2;
+    position[2] = cloud->points[start1].z + (cloud->points[end1].z - cloud->points[start1].z)/2;
+} else {
+    position[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
+    position[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
+    position[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
+}
+//define vector between sides of leg
+Eigen::Vector3f across, along, rotvec, planevec, robvec;
+across << cloud->points[end1].x - cloud->points[start1].x,
+        cloud->points[end1].y - cloud->points[start1].y,
+        cloud->points[end1].z - cloud->points[start1].z;
+across = across.normalized();
+
+along << cloud->points[end2].x - cloud->points[start2].x,
+        cloud->points[end2].y - cloud->points[start2].y,
+        cloud->points[end2].z - cloud->points[start2].z;
+along = along.normalized();
+
+rotvec = across.cross(along); //vector to be rotated around the plane vector
+planevec = across.cross(rotvec); //vector to define plane
+robvec << 0, 0, 1; // unit vector from the leg to the robot (or vice versa?)
+
+float angle[36] = {}; //contains found angles. mb not necessary
+float smallAngle = 90; //smallest found angle. high initial val
+int vecIdx; //which vector fits best
+float dotp; //dotproduct
+for (int i = 0; i < 36; i++)
+{
+    rotvec = rotvec*cos(10) + (planevec.cross(rotvec))*sin(10); //Rodrigue's formula, adbirdged
+    dotp = rotvec.transpose() * robvec;
+    angle[i] = acos(dotp) * 180/3.14159265; //angle in deg
+    if (angle[i]<smallAngle)
+    {
+        smallAngle = angle[i];
+        vecIdx = i;
     }
+}
+}
 };
+
+
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){
+float distx = cloud->points[index1].x - cloud->points[index2].x;
+float disty = cloud->points[index1].y - cloud->points[index2].y;
+float distz = cloud->points[index1].z - cloud->points[index2].z;
+
+float len = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
+return len;
+}
+
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1){ //to origin
+float len = sqrt(pow(cloud->points[index1].x, 2.0) + pow(cloud->points[index1].y, 2.0) + pow(cloud->points[index1].z, 2.0));
+return len;
+}
 
 tuple<int, int> eighteen (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end)
 {
 
-double distx = cloud->points[start].x - cloud->points[end].x;
-double disty = cloud->points[start].y - cloud->points[end].y;
-double distz = cloud->points[start].z - cloud->points[end].z;
+float distx = cloud->points[start].x - cloud->points[end].x;
+float disty = cloud->points[start].y - cloud->points[end].y;
+float distz = cloud->points[start].z - cloud->points[end].z;
 //Finding the length of the line
-double len1 = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
+float len1 = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
 
-double difflen = 0.14/len1;
+float difflen = 0.14/len1;
 
 //Scaling the line to 0.18
 len1 *= difflen;
@@ -50,11 +114,11 @@ len1 *= difflen;
 //By modifying t we can find any point on the line
 //where t = 0 corresponds to our starting point and t = 1 to our end point
 //any value of t in between will be a point on the line between start and end
-double t = -1 * difflen;
+float t = -1 * difflen;
 //Here we calculate the direction "vector"
-double directionx = cloud->points[start].x - cloud->points[end].x;
-double directiony = cloud->points[start].y - cloud->points[end].y;
-double directionz = cloud->points[start].z - cloud->points[end].z;
+float directionx = cloud->points[start].x - cloud->points[end].x;
+float directiony = cloud->points[start].y - cloud->points[end].y;
+float directionz = cloud->points[start].z - cloud->points[end].z;
 
 
 //Pushing the point on the line 18cm from start to the pointcloud
@@ -66,11 +130,11 @@ cloud->push_back(pp);
 cout << cloud->points.size() << endl;
 //Here we find the distance from the start of the line to the point
 int lastindex = cloud->points.size()-1;
-double distpointx = cloud->points[start].x - cloud->points[lastindex].x;
-double distpointy = cloud->points[start].y - cloud->points[lastindex].y;
-double distpointz = cloud->points[start].z - cloud->points[lastindex].z;
-double lenToPoint = sqrt(pow(distpointx, 2.0) + pow(distpointy, 2.0) + pow(distpointz, 2.0));
-double lenToPoint1 = lenToPoint;
+float distpointx = cloud->points[start].x - cloud->points[lastindex].x;
+float distpointy = cloud->points[start].y - cloud->points[lastindex].y;
+float distpointz = cloud->points[start].z - cloud->points[lastindex].z;
+float lenToPoint = sqrt(pow(distpointx, 2.0) + pow(distpointy, 2.0) + pow(distpointz, 2.0));
+float lenToPoint1 = lenToPoint;
 //Here we search for the smallest distance to the 18cm point from any point in the pointclooud
 //The shortst distance to the point will then be the last i value -1 since the smallest distance to the point is the distance from the point to the itself
 int p1 = 0;
@@ -78,9 +142,9 @@ int p2 = 0;
 vector<int> temp;
 for(int i = 0; i < cloud->points.size(); i++)
 {
-    double itepointx = cloud->points[i].x - cloud->points[lastindex].x;
-    double itepointy = cloud->points[i].y - cloud->points[lastindex].y;
-    double itepointz = cloud->points[i].z - cloud->points[lastindex].z;
+    float itepointx = cloud->points[i].x - cloud->points[lastindex].x;
+    float itepointy = cloud->points[i].y - cloud->points[lastindex].y;
+    float itepointz = cloud->points[i].z - cloud->points[lastindex].z;
 
     if(lenToPoint > sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0)))
     {
@@ -93,9 +157,9 @@ for(int i = 0; i < cloud->points.size(); i++)
 {
     if (abs(p1-i)>30)//exclude immediate neighbors
     {
-        double itepointx = cloud->points[i].x - cloud->points[p1].x;
-        double itepointy = cloud->points[i].y - cloud->points[p1].y;
-        double itepointz = cloud->points[i].z - cloud->points[p1].z;
+        float itepointx = cloud->points[i].x - cloud->points[p1].x;
+        float itepointy = cloud->points[i].y - cloud->points[p1].y;
+        float itepointz = cloud->points[i].z - cloud->points[p1].z;
 
         if(lenToPoint1 > sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0)))
         {
@@ -111,7 +175,7 @@ return make_tuple(p1, p2);
 bool startIsNarrower(float myArray[], int arraySize){
 //Checks if the first half of an array has a smaller mean value than the 2nd half
 float sum = 0.0, avg1, avg2;
-    for (int i = 0; i < arraySize/2; i++)
+    for (int i = 0; i < arraySize/2; i++) //sum first half
     {
         sum += myArray[i];
     }
@@ -122,8 +186,6 @@ float sum = 0.0, avg1, avg2;
     {
         sum += myArray[i];
     }
-    cout << "hello function" << endl;
-
     avg2 = sum/arraySize/2;
 
     if (avg1<avg2)
@@ -263,6 +325,7 @@ for (int i = 0; i < iterations; i++)
                 {
                     shortest[i] = len;
                     idx4[i] = point;
+
                 }
             }
         }
@@ -280,7 +343,7 @@ if (startIsNarrower(shortest, iterations))
 }
 /////////////////////////////////////////////////////////////////////////////////
 // Discriminate lines based on angle // Calculate angles
-Vector3f vec1, vec2;
+Eigen::Vector3f vec1, vec2;
 vec1 << cloud->points[idx2].x - cloud->points[idx1].x,
         cloud->points[idx2].y - cloud->points[idx1].y,
         cloud->points[idx2].z - cloud->points[idx1].z;
@@ -323,17 +386,19 @@ for (int i = 0; i < iterations; i++)
     }
 }
 
+/*
 for (int i = 0; i < valCount; ++i)
 {
     cout << "relShort [" << i << "] has value: " << relShort[i] << endl;
 }
+*/
 
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness //
 // Find local minimum, starting from the middle
-uint minIdx = valCount/2;
+uint minIdx = valCount/2; //Where we start searching
 bool minFound = false;
-uint minTries = 0;
+uint minTries = 0; //times we have hit a local minimum
 uint check = valCount/12; //Check a nr of steps, proportional to size of array
 int dir = 1; //is pos to ensure that it can move, if it starts in a local minimum
 while(!minFound)
@@ -415,17 +480,16 @@ cout << lastindex << endl;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
-
-
-
+if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->points.size()/40)
+{// the two estimates are close
+    point1 = idx4[finIdx];
+    point2 = idx3[finIdx];
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 // Output concluded end effector pose
-
-
-
 Pose myPose;
-myPose.set_values();
+myPose.set_values(cloud, point1, point2, idx1, idx2);
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -455,6 +519,7 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
 viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
 viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
 viewer.addLine(cloud->points[point1], cloud->points[point2], 0, 1, 0, "t"); //18cm line
+//viewer.addLine(cloud->points[finIdx], normals->points[finIdx], 1, 1, 1, "hey"); //Show longest line
 
 while(!viewer.wasStopped ())
 {
