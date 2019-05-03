@@ -101,7 +101,6 @@ pose[3] = acos(planevec(0));
 pose[4] = asin(rotvec(1)); //in radians
 pose[5] = atan2(rotvec(0),rotvec(2));
 }
-
 float* Get_values(){
     return pose;
 }
