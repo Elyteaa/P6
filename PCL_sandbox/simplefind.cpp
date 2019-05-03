@@ -37,7 +37,7 @@ cout << "hello class" << endl;
 // make the point indicating position
 float dist1 = Dist(cloud, start1);
 float dist2 = Dist(cloud, end1);
-if (dist1<dist2)
+if (dist1<dist2) //which is closest to the origin
 {
     pose[0] = cloud->points[start1].x + (cloud->points[end1].x - cloud->points[start1].x)/2;
     pose[1] = cloud->points[start1].y + (cloud->points[end1].y - cloud->points[start1].y)/2;
@@ -61,8 +61,10 @@ along << cloud->points[end2].x - cloud->points[start2].x,
 along = along.normalized();
 
 rotvec = across.cross(along); //vector to be rotated around the plane vector
+rotvec = rotvec.normalized();
 planevec = across.cross(rotvec); //vector to define plane
-robvec << 0, 0, -1; // unit vector from the leg to the robot (or vice versa?)
+planevec = planevec.normalized();
+robvec << 0, 0, -1; // unit vector from the leg to the robot (or reverse that?)
 
 float angle[36] = {}; //contains found angles. mb not necessary
 float smallAngle = 90; //smallest found angle. high initial val
@@ -81,13 +83,13 @@ for (int i = 0; i < 36; i++)
 }
 rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10);
 rotvec = rotvec.normalized();
-
+/*
 float roll, pitch, yaw;
 pitch = asin(rotvec(1)); //in radians
 //yaw = asin(rotvec(0)) / cos(pitch);
 yaw = atan2(rotvec(0),rotvec(2)); //in radians
 roll = acos(planevec(0));
-
+*/
 /*
 //cout << rotvec << endl;
 cout << pitch * 180/3.14159265 << endl;
@@ -95,9 +97,9 @@ cout << yaw * 180/3.14159265 << endl;
 cout << roll * 180/3.14159265 << endl;
 */
 
-pose[3] = roll;
-pose[4] = pitch;
-pose[5] = yaw;
+pose[3] = acos(planevec(0));
+pose[4] = asin(rotvec(1)); //in radians
+pose[5] = atan2(rotvec(0),rotvec(2));
 }
 
 float* Get_values(){
@@ -511,12 +513,14 @@ if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->poin
 Pose myPose;
 myPose.Set_values(cloud, point1, point2, idx1, idx2);
 float *pose1 = myPose.Get_values();
+
 cout << pose1[0] << endl;
 cout << pose1[1] << endl;
 cout << pose1[2] << endl;
 cout << pose1[3] << endl;
 cout << pose1[4] << endl;
 cout << pose1[5] << endl;
+
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
@@ -530,7 +534,7 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
     string str = ss.str();
     if (relVec[j])
     {
-        if (j == finIdx) //concluded index
+        if (j == finIdx) //concluded index for thickness evaluation
         {
             viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 1, 1, 0, str); //concluded line
         }
@@ -540,7 +544,6 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
         }
     }
 }
-
 viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
 viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
 viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18cm line
