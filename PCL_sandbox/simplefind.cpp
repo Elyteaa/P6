@@ -1,22 +1,15 @@
-#include <pcl/range_image/range_image.h>
+//#include <pcl/range_image/range_image.h> //
 #include <math.h>
-#include <vector>
-#include <algorithm>
-#include <Eigen/Dense>
-#include <Eigen/Geometry>
-#include <pcl/io/io.h>
+#include <vector> //
+//#include <pcl/io/io.h> //
+
 #include <pcl/io/pcd_io.h>
-#include <pcl/features/integral_image_normal.h>
+//#include <pcl/features/integral_image_normal.h>
 #include <pcl/visualization/cloud_viewer.h>
-#include <pcl/filters/voxel_grid.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/features/normal_3d.h>
+//#include <pcl/filters/voxel_grid.h>
+//#include <pcl/io/ply_io.h>
+//#include <pcl/features/normal_3d.h>
 #include <iostream>
-#include <pcl/sample_consensus/sac_model_line.h>
-#include <pcl/ModelCoefficients.h>
-#include <pcl/sample_consensus/method_types.h>
-#include <pcl/sample_consensus/model_types.h>
-#include <pcl/segmentation/sac_segmentation.h>
 
 using namespace std;
 // Refine estimate combination
@@ -33,7 +26,6 @@ private:
 
 public:
 void Set_values(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
-cout << "hello class" << endl;
 // make the point indicating position
 float dist1 = Dist(cloud, start1);
 float dist2 = Dist(cloud, end1);
@@ -83,19 +75,6 @@ for (int i = 0; i < 36; i++)
 }
 rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10);
 rotvec = rotvec.normalized();
-/*
-float roll, pitch, yaw;
-pitch = asin(rotvec(1)); //in radians
-//yaw = asin(rotvec(0)) / cos(pitch);
-yaw = atan2(rotvec(0),rotvec(2)); //in radians
-roll = acos(planevec(0));
-*/
-/*
-//cout << rotvec << endl;
-cout << pitch * 180/3.14159265 << endl;
-cout << yaw * 180/3.14159265 << endl;
-cout << roll * 180/3.14159265 << endl;
-*/
 
 pose[3] = acos(planevec(0));
 pose[4] = asin(rotvec(1)); //in radians
@@ -159,8 +138,7 @@ float lenToPoint = sqrt(pow(distpointx, 2.0) + pow(distpointy, 2.0) + pow(distpo
 float lenToPoint1 = lenToPoint;
 //Here we search for the smallest distance to the 18cm point from any point in the pointclooud
 //The shortst distance to the point will then be the last i value -1 since the smallest distance to the point is the distance from the point to the itself
-int p1 = 0;
-int p2 = 0;
+int p1 = 0, p2 = 0;
 vector<int> temp;
 for(int i = 0; i < cloud->points.size(); i++)
 {
@@ -228,28 +206,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
 pcl::io::loadPCDFile ("hullline.pcd", *cloud); //prev: hulltest.pdc
 cout << "Point cloud size: " << cloud->points.size() << endl;
 
-pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> ne;
-ne.setViewPoint (1, 2, 4); //Set initial viewpoint
-ne.setInputCloud(cloud);
-
-pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ> ());
-ne.setSearchMethod (tree);
-
-// Output datasets
-pcl::PointCloud<pcl::Normal>::Ptr normals (new pcl::PointCloud<pcl::Normal>);
-
-// Use all neighbors in a sphere of radius 3cm
-ne.setRadiusSearch (0.03);
-
-// Compute the features
-ne.compute(*normals);
-
-pcl::ModelCoefficients::Ptr line_coefficients(new pcl::ModelCoefficients);
-pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
-
 ///////////////////////////////////////////////////////////////////////////
 // Try out different pairs, looking for the longest distance between them
-const int size = cloud->points.size();
 float longest = 0.0; // longest line found
 float len = 0.0;     // current length being evaluated
 float xdist = 0.0;
@@ -349,7 +307,6 @@ for (int i = 0; i < iterations; i++)
                 {
                     shortest[i] = len;
                     idx4[i] = point;
-
                 }
             }
         }
@@ -395,9 +352,7 @@ for (int i = 0; i < iterations; i++)
     {
         relVec.push_back(0); // 0 indicates invalid line
     }
-    //cout << "angle " << i << " is: " << angle[i] << endl;
 }
-
 //Make new array with only valid lines
 float relShort[valCount] = {}; //lengths of valid lines
 uint relcount = 0;
@@ -409,14 +364,6 @@ for (int i = 0; i < iterations; i++)
         relcount++;
     }
 }
-
-/*
-for (int i = 0; i < valCount; ++i)
-{
-    cout << "relShort [" << i << "] has value: " << relShort[i] << endl;
-}
-*/
-
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum, starting from the middle
 uint minIdx = valCount/2; //Where we start searching
@@ -470,7 +417,6 @@ while(!minFound)
         break;
     }
 }
-
 // Go from minIdx back to real idx of local minimum
 uint finIdx = 0;
 for (int i = 0; i < iterations; i++)
@@ -489,15 +435,9 @@ cout << "Min has original idx: [" << finIdx << "] with value: [" << shortest[fin
 
 ////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: distance from tip, 0.18m
-//coordinates where the cut should be
-int point1;
-int point2;
-//Replace 1 and 94 with the variables which hold the index values for the start and end of the longest line.
-//idx1 and idx2
+int point1, point2; //coordinates where the cut should be
 tie(point1, point2) = eighteen(cloud, idx1, idx2);
-cout << "First point = " << point1 << " Second point = " << point2 << endl;
 int lastindex = cloud->points.size()-1;
-cout << lastindex << endl;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
@@ -506,7 +446,6 @@ if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->poin
     point1 = idx4[finIdx];
     point2 = idx3[finIdx];
 }
-
 ///////////////////////////////////////////////////////////////////////////////
 // Output concluded end effector pose
 Pose myPose;
@@ -543,10 +482,8 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
         }
     }
 }
-viewer.addPointCloudNormals<pcl::PointXYZ,pcl::Normal>(cloud,normals);
 viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
 viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18cm line
-//viewer.addLine(cloud->points[finIdx], normals->points[finIdx], 1, 1, 1, "hey"); //Show longest line
 
 while(!viewer.wasStopped ())
 {
