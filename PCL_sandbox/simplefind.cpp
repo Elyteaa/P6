@@ -1,7 +1,10 @@
-//#include <pcl/range_image/range_image.h> //
+#include <pcl/range_image/range_image.h> //
 #include <math.h>
 #include <vector> //
-//#include <pcl/io/io.h> //
+#include <pcl/io/io.h> //
+
+//nch@sparnord.dk
+
 
 #include <pcl/io/pcd_io.h>
 //#include <pcl/features/integral_image_normal.h>
@@ -27,39 +30,30 @@ private:
 public:
 void Set_values(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
 // make the point indicating position
-float dist1 = Dist(cloud, start1);
-float dist2 = Dist(cloud, end1);
-if (dist1<dist2) //which is closest to the origin
-{
-    pose[0] = cloud->points[start1].x + (cloud->points[end1].x - cloud->points[start1].x)/2;
-    pose[1] = cloud->points[start1].y + (cloud->points[end1].y - cloud->points[start1].y)/2;
-    pose[2] = cloud->points[start1].z + (cloud->points[end1].z - cloud->points[start1].z)/2;
-} else {
-    pose[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
-    pose[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
-    pose[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
-}
+pose[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
+pose[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
+pose[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
 //define vector between sides of leg
 Eigen::Vector3f across, along, rotvec, planevec, robvec;
 across << cloud->points[end1].x - cloud->points[start1].x,
-        cloud->points[end1].y - cloud->points[start1].y,
-        cloud->points[end1].z - cloud->points[start1].z;
+          cloud->points[end1].y - cloud->points[start1].y,
+          cloud->points[end1].z - cloud->points[start1].z;
 across = across.normalized();
 
 //define vector that is the longest line
 along << cloud->points[end2].x - cloud->points[start2].x,
-        cloud->points[end2].y - cloud->points[start2].y,
-        cloud->points[end2].z - cloud->points[start2].z;
+         cloud->points[end2].y - cloud->points[start2].y,
+         cloud->points[end2].z - cloud->points[start2].z;
 along = along.normalized();
 
 rotvec = across.cross(along); //vector to be rotated around the plane vector
 rotvec = rotvec.normalized();
 planevec = across.cross(rotvec); //vector to define plane
 planevec = planevec.normalized();
-robvec << 0, 0, -1; // unit vector from the leg to the robot (or reverse that?)
+robvec << pose[0], pose[1], pose[2]; // unit vector from the leg to the robot (or reverse that?)
 
 float angle[36] = {}; //contains found angles. mb not necessary
-float smallAngle = 90; //smallest found angle. high initial val
+float smallAngle = 360; //smallest found angle. high initial val
 int vecIdx; //which vector fits best
 float dotp; //dotproduct
 for (int i = 0; i < 36; i++)
@@ -99,9 +93,7 @@ float len = sqrt(pow(cloud->points[index1].x, 2.0) + pow(cloud->points[index1].y
 return len;
 }
 
-tuple<int, int> eighteen (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end)
-{
-
+tuple<int, int> eighteen (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end){
 float distx = cloud->points[start].x - cloud->points[end].x;
 float disty = cloud->points[start].y - cloud->points[end].y;
 float distz = cloud->points[start].z - cloud->points[end].z;
@@ -203,7 +195,7 @@ srand (static_cast <unsigned> (time(0)));
 // load point cloud
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
 
-pcl::io::loadPCDFile ("hullline.pcd", *cloud); //prev: hulltest.pdc
+pcl::io::loadPCDFile ("concaveboi.pcd", *cloud); //prev: hulltest.pdc
 cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -263,7 +255,7 @@ for (int i = 0; i < iterations; i++)
 for (int i = 0; i < iterations; i++)
 {
     if (abs(idx3[i] - idx1)<20 || idx3[i]<10 && abs(cloud->points.size() - idx1)<10)
-    {//if nearest point is close to the tip
+    {//if idx3 is close to the tip
         if (idx3[i]>idx1) //if nearest point is to the right
         {
             if (((idx1-idx3[i])<10) || (cloud->points.size() - idx1)<10)
@@ -291,7 +283,7 @@ for (int i = 0; i < iterations; i++)
         zdist = cloud->points[idx3[i]].z - cloud->points[idx4[i]].z;
         shortest[i] = sqrt(pow(xdist, 2.0) + pow(ydist, 2.0) + pow(zdist, 2.0));
     }
-    else //if nearest point is not close to the tip
+    else //if idx3 is not close to the tip
     {
         shortest[i] = 1.0;
         for (int point = 0; point < cloud->points.size(); point++)
@@ -316,11 +308,12 @@ for (int i = 0; i < iterations; i++)
 // Make sure that idx1 is the narrow end
 if (startIsNarrower(shortest, iterations))
 {
-    cout << "idx1 is already in the narrow end of the leg" << endl;
+    cout << "idx1 is in the narrow end" << endl;
 } else {
     int temp = idx1; // switch them
     idx1 = idx2;
     idx2 = temp;
+    cout << "idx1 was in the wide end" << endl;
 }
 /////////////////////////////////////////////////////////////////////////////////
 // Discriminate lines based on angle // Calculate angles
@@ -330,7 +323,7 @@ vec1 << cloud->points[idx2].x - cloud->points[idx1].x,
         cloud->points[idx2].z - cloud->points[idx1].z;
 vec1 = vec1.normalized(); // vector version of the longest line (green)
 
-std::vector<int> relVec; //only valid lines 
+std::vector<int> valVec; //only valid lines 
 uint valCount = 0; //How many lines are valid
 float angle[iterations] = {}; //Angles of the lines
 for (int i = 0; i < iterations; i++)
@@ -345,52 +338,52 @@ for (int i = 0; i < iterations; i++)
 
     if (abs(angle[i] - 90) < 35) //accept a diff of up to x deg // WEIRD ERROR WITH LOW VALUE
     {
-        relVec.push_back(i+1); //positive indicates valid line
+        valVec.push_back(i+1); //positive indicates valid line
         valCount++; // count valid lines
     }
     else
     {
-        relVec.push_back(0); // 0 indicates invalid line
+        valVec.push_back(0); // 0 indicates invalid line
     }
 }
 //Make new array with only valid lines
-float relShort[valCount] = {}; //lengths of valid lines
+float valShort[valCount] = {}; //lengths of valid lines
 uint relcount = 0;
 for (int i = 0; i < iterations; i++)
 {
-    if (relVec[i]) //if this index's line is valid
+    if (valVec[i]) //if this index's line is valid
     {
-        relShort[relcount] = shortest[i];
+        valShort[relcount] = shortest[i];
         relcount++;
     }
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum, starting from the middle
 uint minIdx = valCount/2; //Where we start searching
-bool minFound = false;
+bool minFound = false; //has the best local minimum been found?
 uint minTries = 0; //times we have hit a local minimum
 uint check = valCount/12; //Check a nr of steps, proportional to size of array
 int dir = 1; //is pos to ensure that it can move, if it starts in a local minimum
 while(!minFound)
 {
-    if (relShort[minIdx]>relShort[minIdx-1])
+    if (valShort[minIdx]>valShort[minIdx-1])
     {
         minIdx--;
         dir = -1;
         cout << "minus" << endl;
     }
-    else if (relShort[minIdx]>relShort[minIdx+1])
+    else if (valShort[minIdx]>valShort[minIdx+1])
     {
         minIdx++;
         dir = 1;
         cout << "plus" << endl;
     }
-    else if (relShort[minIdx]<relShort[minIdx+1] && relShort[minIdx]<relShort[minIdx-1])
+    else if (valShort[minIdx]<valShort[minIdx+1] && valShort[minIdx]<valShort[minIdx-1])
     {
         cout << "Possible min at: " << minIdx << endl;
         for (int i = 1; i <= check; i++)
         {
-            if (relShort[minIdx + i*dir] < relShort[minIdx])
+            if (valShort[minIdx + i*dir] < valShort[minIdx])
             {
                 minIdx = minIdx + i*dir;
                 i = check;
@@ -399,11 +392,11 @@ while(!minFound)
         if (!dir)
         {
             minFound = true;
-            cout << "Found min: [" << minIdx << "] with value: [" << relShort[minIdx] << "]" << endl;
+            cout << "Found min: [" << minIdx << "] with value: [" << valShort[minIdx] << "]" << endl;
         }
-        if (minTries < 1)
+        if (minTries < 1) //if we haven't hit a local minimum before
         {
-            dir = -dir;
+            dir = -dir; //swap direction
             minTries++;
         }
         else
@@ -421,13 +414,13 @@ while(!minFound)
 uint finIdx = 0;
 for (int i = 0; i < iterations; i++)
 {
-    if (relVec[i])
+    if (valVec[i])
     {
         finIdx++;
     }
     if (finIdx == minIdx + 1)
     {
-        finIdx = i;
+        finIdx = i*gran;
         i = iterations;
     }
 }
@@ -470,7 +463,7 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
     stringstream ss;
     ss << j;
     string str = ss.str();
-    if (relVec[j])
+    if (valVec[j])
     {
         if (j == finIdx) //concluded index for thickness evaluation
         {
