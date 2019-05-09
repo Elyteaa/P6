@@ -3,9 +3,6 @@
 #include <vector> //
 #include <pcl/io/io.h> //
 
-//nch@sparnord.dk
-
-
 #include <pcl/io/pcd_io.h>
 //#include <pcl/features/integral_image_normal.h>
 #include <pcl/visualization/cloud_viewer.h>
