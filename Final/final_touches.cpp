@@ -293,11 +293,7 @@ pcl::PassThrough<pcl::PointXYZ> pass;
 
   copyPointCloud(*cloud_hull, *cloud);
 srand (static_cast <unsigned> (time(0)));
-// load point cloud
-pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
 
-pcl::io::loadPCDFile ("concaveboi.pcd", *cloud); //prev: hulltest.pdc
-cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
 // Try out different pairs, looking for the longest distance between them
