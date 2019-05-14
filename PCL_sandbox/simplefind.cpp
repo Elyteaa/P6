@@ -19,7 +19,6 @@ using namespace std;
 
 /*
 Fig 6.1 good
-- what about communicating with the FANUC 710ic?
 - ros has JointState and Pose msg types, why not use those?
 - discriminate line?
 - You have almost no comments in you code. Find some guidelines on writing useful comments. I can recommend writing comments before writing the code itself.
@@ -31,65 +30,7 @@ Fig 6.1 good
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
 
-class Pose {
-private:
-    float pose[6];
-
-public:
-void calculatePose(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
-// make the point indicating position
-pose[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
-pose[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
-pose[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
-//define vector between sides of leg
-Eigen::Vector3f across, along, rotvec, planevec, robvec;
-across << cloud->points[end1].x - cloud->points[start1].x,
-          cloud->points[end1].y - cloud->points[start1].y,
-          cloud->points[end1].z - cloud->points[start1].z;
-across = across.normalized();
-
-//define vector that is the longest line
-along << cloud->points[end2].x - cloud->points[start2].x,
-         cloud->points[end2].y - cloud->points[start2].y,
-         cloud->points[end2].z - cloud->points[start2].z;
-along = along.normalized();
-
-rotvec = across.cross(along); //vector to be rotated around the plane vector
-rotvec = rotvec.normalized();
-planevec = across.cross(rotvec); //vector to define plane
-planevec = planevec.normalized();
-robvec << pose[0], pose[1], pose[2]; // unit vector from the leg to the robot (or reverse that?)
-
-float angle[36] = {}; //contains found angles. mb not necessary
-float smallAngle = 360; //smallest found angle. high initial value
-float angleInc = 10*(3.14159265/180); //Angle increment in radians, 10 deg
-int vecIdx; //which vector fits best
-float dotp; //dotproduct
-
-for (int i = 0; i < 36; i++)
-{ //test which vector fits best
-    rotvec = rotvec*cos(angleInc) + (planevec.cross(rotvec))*sin(angleInc);// + planevec*(planevec*rotvec)*(1-cos(10); //Rodrigue's formula, abridged
-    dotp = rotvec.transpose() * robvec; // dot product with robot vector
-    angle[i] = acos(dotp) * 180/3.14159265; //angle in deg
-    if (angle[i]<smallAngle)
-    {
-        smallAngle = angle[i];
-        vecIdx = i;
-    }
-}
-rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10);
-rotvec = rotvec.normalized();
-
-pose[3] = acos(planevec(0));
-pose[4] = asin(rotvec(1)); //in radians
-pose[5] = atan2(rotvec(0),rotvec(2));
-}
-float* Get_values(){
-    return pose;
-}
-};
-
-float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){ //between points
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){ //Between points
 float distx = cloud->points[index1].x - cloud->points[index2].x;
 float disty = cloud->points[index1].y - cloud->points[index2].y;
 float distz = cloud->points[index1].z - cloud->points[index2].z;
@@ -103,96 +44,139 @@ float len = sqrt(pow(cloud->points[index1].x, 2.0) + pow(cloud->points[index1].y
 return len;
 }
 
-tuple<int, int> eighteen (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end){
-float distx = cloud->points[start].x - cloud->points[end].x;
-float disty = cloud->points[start].y - cloud->points[end].y;
-float distz = cloud->points[start].z - cloud->points[end].z;
-//Finding the length of the line
-float len1 = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
+class Pose {
+private:
+    float pose[6];
 
-float difflen = 0.14/len1;
+public:
+void calculatePose(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
+//Make the point indicating position
+pose[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
+pose[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
+pose[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
+//Define vector between sides of leg
+Eigen::Vector3f across, along, rotvec, planevec, robvec;
+across << cloud->points[end1].x - cloud->points[start1].x,
+          cloud->points[end1].y - cloud->points[start1].y,
+          cloud->points[end1].z - cloud->points[start1].z;
+across = across.normalized();
 
-//Scaling the line to 0.18
-len1 *= difflen;
+//Define vector that is the longest line
+along << cloud->points[end2].x - cloud->points[start2].x,
+         cloud->points[end2].y - cloud->points[start2].y,
+         cloud->points[end2].z - cloud->points[start2].z;
+along = along.normalized();
 
-//By modifying t we can find any point on the line
-//where t = 0 corresponds to our starting point and t = 1 to our end point
-//any value of t in between will be a point on the line between start and end
-float t = -1 * difflen;
+rotvec = across.cross(along); //Vector to be rotated around the plane vector
+rotvec = rotvec.normalized();
+planevec = across.cross(rotvec); //Vector to define plane
+planevec = planevec.normalized();
+robvec << pose[0], pose[1], pose[2]; //Unit vector from the leg to the robot
+
+float angle[36] = {}; //Contains found angles. mb not necessary
+float smallAngle = 360; //Smallest found angle. high initial value
+float angleInc = 10*(3.14159265/180); //Angle increment in radians, 10 deg
+int vecIdx; //Which vector fits best
+float dotp; //Dotproduct
+
+for (int i = 0; i < 36; i++)
+{ //Test which vector fits best
+    rotvec = rotvec*cos(angleInc) + (planevec.cross(rotvec))*sin(angleInc);// + planevec*(planevec*rotvec)*(1-cos(10); //Rodrigue's formula, abridged
+    dotp = rotvec.transpose() * robvec; // Dot product with robot vector
+    angle[i] = acos(dotp) * 180/3.14159265; //Angle in deg
+    if (angle[i]<smallAngle)
+    {
+        smallAngle = angle[i]; //Assign new smallest angle
+        vecIdx = i;            //Assign idx of best fitting vector
+    }
+}
+rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10); //rotate to found optimum
+rotvec = rotvec.normalized();
+
+pose[3] = acos(planevec(0));
+pose[4] = asin(rotvec(1)); //In radians
+pose[5] = atan2(rotvec(0),rotvec(2));
+}
+float* get_Pose(){
+return pose;
+}
+};
+
+tuple<int, int> setDistFunction (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end){
+float legLength = Dist(cloud, start, end); //Finding the length of the line
+cout << "legLength: " << legLength << endl;
+float setDist = 0.14; //Set dist from start to desired new point
+float lengthRatio = setDist/legLength; //Div by length, to balance 
+cout << "lengthRatio: " << lengthRatio << endl;
+
+//By modifying lengthRatio we can find any point on the line
+//where lengthRatio = 0 corresponds to our starting point and lengthRatio = 1 to our end point
+
 //Here we calculate the direction "vector"
-float directionx = cloud->points[start].x - cloud->points[end].x;
-float directiony = cloud->points[start].y - cloud->points[end].y;
-float directionz = cloud->points[start].z - cloud->points[end].z;
+float xDir = cloud->points[end].x - cloud->points[start].x;
+float yDir = cloud->points[end].y - cloud->points[start].y;
+float zDir = cloud->points[end].z - cloud->points[start].z;
 
 //Pushing the point on the line 18cm from start to the pointcloud
-//Notice that each point is calculated by adding the start point with the direction vector multiplied by t
-pcl::PointXYZ pp;
-pp.x = cloud->points[start].x + directionx * t; pp.y = cloud->points[start].y + directiony * t; pp.z = cloud->points[start].z + directionz * t;
-cloud->push_back(pp);
+pcl::PointXYZ pp; //Create empty point pp
+pp.x = cloud->points[start].x + xDir*lengthRatio;
+pp.y = cloud->points[start].y + yDir*lengthRatio;
+pp.z = cloud->points[start].z + zDir*lengthRatio;
+cloud->push_back(pp); //Add new point to point cloud
 
-cout << cloud->points.size() << endl;
 //Here we find the distance from the start of the line to the point
-int lastindex = cloud->points.size()-1;
-float distpointx = cloud->points[start].x - cloud->points[lastindex].x;
-float distpointy = cloud->points[start].y - cloud->points[lastindex].y;
-float distpointz = cloud->points[start].z - cloud->points[lastindex].z;
-float lenToPoint = sqrt(pow(distpointx, 2.0) + pow(distpointy, 2.0) + pow(distpointz, 2.0));
-float lenToPoint1 = lenToPoint;
-//Here we search for the smallest distance to the 18cm point from any point in the pointclooud
-//The shortst distance to the point will then be the last i value -1 since the smallest distance to the point is the distance from the point to the itself
+int lastIndex = cloud->points.size()-1; //Index of the new point
+
 int p1 = 0, p2 = 0;
+float tempDist, tempShortest = 1.0; //Temp variables for finding shortest dist
 vector<int> temp;
+//Search for the smallest dist to the new point from any point, except itself
 for(int i = 0; i < cloud->points.size(); i++)
 {
-    if (i!= cloud->points.size()-1)
+    if (i!= lastIndex) //Exclude the new point
     {
-        float itepointx = cloud->points[i].x - cloud->points[lastindex].x;
-        float itepointy = cloud->points[i].y - cloud->points[lastindex].y;
-        float itepointz = cloud->points[i].z - cloud->points[lastindex].z;
-
-        if(lenToPoint > sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0)))
+        tempDist = Dist(cloud, i, lastIndex); //Calculate dist to a point
+        if(tempShortest > tempDist) //If current point is closer than any found before
         {
-            lenToPoint = sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0));
-            //temp.push_back(i);
-            p1 = i;///temp.rbegin()[1];
+            tempShortest = tempDist;//Assign new shortest dist
+            p1 = i;                 //Assign index for closest point
         }
     } 
 }
-for(int i = 0; i < cloud->points.size(); i++)
+tempShortest = 1.0; //Reset to high value
+for(int i = 0; i < cloud->points.size(); i++) //Search for closest point on the other side
 {
-    if (abs(p1-i)>30 && i!= cloud->points.size()-1)//exclude immediate neighbors
+    if (abs(p1-i)>30 && i!= lastIndex)//Exclude close neighbors and new point
     {
-        float itepointx = cloud->points[i].x - cloud->points[p1].x;
-        float itepointy = cloud->points[i].y - cloud->points[p1].y;
-        float itepointz = cloud->points[i].z - cloud->points[p1].z;
-
-        if(lenToPoint1 > sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0)))
+        tempDist = Dist(cloud, i, p1); //Calculate dist to a point
+        if(tempShortest > tempDist) //If current point is closer than any found before
         {
-            lenToPoint1 = sqrt(pow(itepointx, 2.0) + pow(itepointy, 2.0) + pow(itepointz, 2.0));
-            p2 = i;
+            tempShortest = tempDist;//Assign new shortest dist
+            p2 = i;                 //Assign index for closest point
         }
     }
 }
+cout << "Set dist estimate: [" << p1 << ", " << p2 << "]" << endl;
 return make_tuple(p1, p2);
 }
 
 bool startIsNarrower(float myArray[], int arraySize){
 //Checks if the first half of an array has a smaller mean value than the 2nd half
 float sum = 0.0, avg1, avg2;
-    for (int i = 0; i < arraySize/2; i++) //sum first half
+    for (int i = 0; i < arraySize/2; i++) //Sum first half
     {
         sum += myArray[i];
     }
-    avg1 = sum/arraySize/2; //mean of first half
+    avg1 = sum/arraySize/2; //Mean of 1st half
 
     sum = 0.0;
     for (int i = arraySize/2; i < arraySize; i++)
     {
         sum += myArray[i];
     }
-    avg2 = sum/arraySize/2;
+    avg2 = sum/arraySize/2; //Mean of 2nd half
 
-    if (avg1<avg2) //compare
+    if (avg1<avg2) //Compare them
     {
         return true;
     } else {
@@ -212,8 +196,8 @@ cout << "Point cloud size: " << cloud->points.size() << endl;
 // Try out different pairs, looking for the longest distance between them
 float longest = 0.0; // longest line found
 float length = 0.0;  // current length being evaluated
-int legTip = 0;      // one end of the line
-int legEnd = 0;      // other end of the line
+int legTip = 0;      // one end of the longest line, supposed to be leg tip
+int legEnd = 0;      // other end of the longest line, supposed to be shoulder
 
 for (int i = 0; i < cloud->points.size()/2; i++)
 {
@@ -236,34 +220,33 @@ cout << "The longest line found goes between points [" << legTip << "," << legEn
 
 /////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: thickness increase. Index increment
-const int gran = 1; //granularity, how close clsoe are the lines across the leg. 1 for most legs
-const int iterations = cloud->points.size()/(gran*2); //how many line will be made
-float shortest[iterations] = {1.0}; //distances between pairs of oneSide[i] and otherSide[i]
-int oneSide[iterations] = {};
-int otherSide[iterations] = {}; //nearest point opposite from an oneSide
+const int iterations = cloud->points.size()/2;//How many lines will be made across the leg
+float shortest[iterations] = {1.0}; //Distances between pairs of oneSide[i] and otherSide[i]
+int oneSide[iterations] = {};       //Index of a point on one side of the leg
+int otherSide[iterations] = {};     //Index of nearest point opposite from oneSide[i]
 
-// populate oneSide with indices, starting from legTip
+// Populate oneSide with indices, starting from legTip
 for (int i = 0; i < iterations; i++)
 {
-    if (legTip + i*gran > cloud->points.size()-1)
-    {// in case we would exceed size of point cloud
-        oneSide[i] = legTip + i*gran - cloud->points.size();
+    if (legTip + i > cloud->points.size()-1)
+    {// In case we would exceed size of point cloud
+        oneSide[i] = legTip + i - cloud->points.size();
     }
     else
     {
-        oneSide[i] = legTip + i*gran;
+        oneSide[i] = legTip + i;
     }
 }
-// find otherSide[i] for each oneSide[i]
+// Find otherSide[i] for each oneSide[i]
 for (int i = 0; i < iterations; i++)
-{   //for each point assigned to oneSide
-    shortest[i] = 1.0; //high initial value, to ensure that search happens
+{   //For each point assigned to oneSide
+    shortest[i] = 1.0; //High initial value, to ensure that search happens
     for (int j = 0; j < cloud->points.size(); j++)
-    {//search for nearest opposite
-        if (abs(j-oneSide[i])>30)//exclude immediate neighbors
+    {//Search for nearest opposite
+        if (abs(j-oneSide[i])>30)//Exclude immediate neighbors
         {
-            length = Dist(cloud, oneSide[i], j); //calculate distance between points
-            if (length<shortest[i]) //if dist is less than previously found
+            length = Dist(cloud, oneSide[i], j); //Calculate distance between points
+            if (length<shortest[i]) //If dist is less than previously found
             {
                 shortest[i] = length; //Assign new shortest dist
                 otherSide[i] = j; //Assign index for that point to otherSide array
@@ -277,20 +260,20 @@ if (startIsNarrower(shortest, iterations))
 {
     cout << "legTip is in the narrow end, no switch" << endl;
 } else {
-    int temp = legTip; // switch them
+    int temp = legTip; // Switch them
     legTip = legEnd;
     legEnd = temp;
     cout << "legTip was in the wide end, has been switched" << endl;
 }
 /////////////////////////////////////////////////////////////////////////////////
-// Discriminate lines based on angle // Calculate angles
+// Discriminate between lines based on angle // Calculate angles
 Eigen::Vector3f alongVec, acrossVec;
 alongVec << cloud->points[legEnd].x - cloud->points[legTip].x,
-        cloud->points[legEnd].y - cloud->points[legTip].y,
-        cloud->points[legEnd].z - cloud->points[legTip].z;
-alongVec = alongVec.normalized(); // unit vector of the longest line along the leg
+            cloud->points[legEnd].y - cloud->points[legTip].y,
+            cloud->points[legEnd].z - cloud->points[legTip].z;
+alongVec = alongVec.normalized(); //Unit vector of the longest line along the leg
 
-std::vector<int> valVec; //only valid lines 
+std::vector<int> valVec; //Only valid lines 
 uint valCount = 0; //How many lines are valid
 float angle[iterations] = {}; //Angles of the lines
 for (int i = 0; i < iterations; i++)
@@ -298,15 +281,15 @@ for (int i = 0; i < iterations; i++)
     acrossVec << cloud->points[oneSide[i]].x - cloud->points[otherSide[i]].x,
             cloud->points[oneSide[i]].y - cloud->points[otherSide[i]].y,
             cloud->points[oneSide[i]].z - cloud->points[otherSide[i]].z;
-    acrossVec = acrossVec.normalized(); // unit vector of line across the leg
+    acrossVec = acrossVec.normalized(); //Unit vector of line across the leg
     
     float dotp = alongVec.transpose() * acrossVec;
-    angle[i] = acos(dotp) * 180/3.14159265; //angle in deg
+    angle[i] = acos(dotp) * 180/3.14159265; //Angle in deg
 
-    if (abs(angle[i] - 90) < 35) //accept a diff of up to 35 deg
+    if (abs(angle[i] - 90) < 35) //Accept a diff of up to 35 deg
     {
-        valVec.push_back(i+1); //positive indicates valid line
-        valCount++; // count valid lines
+        valVec.push_back(i+1); //Positive indicates valid line
+        valCount++; //Count valid lines
     }
     else
     {
@@ -314,11 +297,11 @@ for (int i = 0; i < iterations; i++)
     }
 }
 //Make new array with only valid lines
-float valShort[valCount] = {}; //lengths of valid lines
+float valShort[valCount] = {}; //Lengths of valid lines
 uint relcount = 0;
 for (int i = 0; i < iterations; i++)
 {
-    if (valVec[i]) //if this index's line is valid
+    if (valVec[i]) //If this index's line is valid
     {
         valShort[relcount] = shortest[i];
         relcount++;
@@ -326,23 +309,23 @@ for (int i = 0; i < iterations; i++)
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum, starting from the middle
-uint minIdx = valCount/2; //Where we start searching
-bool minFound = false; //has the best local minimum been found?
-uint minTries = 0; //times we have hit a local minimum
-uint check = valCount/12; //Check a nr of steps, proportional to size of array
-int dir = 1; //is positive to ensure that it can move, if it starts in a local minimum
+uint minIdx = valCount/2;   //Where we start searching
+bool minFound = false;      //Has the best local minimum been found?
+uint minTries = 0;          //Times we have hit a local minimum
+uint check = valCount/12;   //Check a nr of steps, proportional to size of array
+int dir = 1;                //Direction. Is positive to ensure mobility, if start at local minimum
 while(!minFound)
 {
     if (valShort[minIdx]>valShort[minIdx-1])
     {
-        minIdx--;
-        dir = -1;
+        minIdx--; //Decrement: search at lower indices
+        dir = -1; //Set direction negative
         cout << "minus" << endl;
     }
     else if (valShort[minIdx]>valShort[minIdx+1])
     {
-        minIdx++;
-        dir = 1;
+        minIdx++; //Increment: search at higher indices
+        dir = 1; //Set direction pos
         cout << "plus" << endl;
     }
     else if (valShort[minIdx]<valShort[minIdx+1] && valShort[minIdx]<valShort[minIdx-1])
@@ -352,8 +335,8 @@ while(!minFound)
         {
             if (valShort[minIdx + i*dir] < valShort[minIdx]) //Check some indices ahead for lower value
             {
-                minIdx = minIdx + i*dir; //set the search index there
-                i = check; //make sure the loop stops
+                minIdx = minIdx + i*dir; //Set the search index there
+                i = check; //Make sure the loop stops
             }
         }
         if (!dir)
@@ -361,27 +344,25 @@ while(!minFound)
             minFound = true;
             cout << "Found min: [" << minIdx << "] with value: [" << valShort[minIdx] << "]" << endl;
         }
-        if (minTries < 1) //if we haven't hit a local minimum before
+        if (minTries < 1) //If we haven't hit a local minimum before
         {
-            dir = -dir; //swap direction
+            dir = -dir; //Swap direction
             minTries++;
         } else {
             dir = 0;
         }
-    }
-    else 
-    {
+    } else {
         cout << "Error in finding minimum!" << endl;
         break;
     }
 }
 // Go from minIdx back to real idx of local minimum
-uint finIdx = 0; //
+int finIdx = 0; //Final index
 for (int i = 0; i < iterations; i++)
 {
     if (finIdx == minIdx - 1)
     {
-        finIdx = i*gran;
+        finIdx = i;
         i = iterations;
     }
     if (valVec[i])
@@ -389,18 +370,18 @@ for (int i = 0; i < iterations; i++)
         finIdx++;
     }
 }
-cout << "Min has original idx: [" << finIdx << "] with value: [" << shortest[finIdx] << "]" << endl;
+cout << "Min has original idx: [" << oneSide[finIdx] << ", " << otherSide[finIdx] << "] with value: [" << shortest[finIdx] << "]" << endl;
 
 ////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: distance from tip, 0.18m
-int point1, point2; //coordinates where the cut should be
-tie(point1, point2) = eighteen(cloud, legTip, legEnd);
-int lastindex = cloud->points.size()-1;
+int point1, point2; //Coordinates where the cut should be
+tie(point1, point2) = setDistFunction(cloud, legTip, legEnd);
+//int lastIndex = cloud->points.size()-1;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
-if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->points.size()/40)
-{// if the two estimates are close
+if (abs(finIdx-point1)<=cloud->points.size()/40 || abs(finIdx-point2)<=cloud->points.size()/40)
+{// If the two estimates are close
     point1 = otherSide[finIdx]; //Use the finIdx found by local minimum search
     point2 = oneSide[finIdx];
 }
@@ -408,31 +389,33 @@ if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->poin
 // Output concluded end effector pose
 Pose myPose;
 myPose.calculatePose(cloud, point1, point2, legTip, legEnd);
-float *pose1 = myPose.Get_values();
+float *pose = myPose.get_Pose();
 
-cout << pose1[0] << endl;
-cout << pose1[1] << endl;
-cout << pose1[2] << endl;
-cout << pose1[3] << endl;
-cout << pose1[4] << endl;
-cout << pose1[5] << endl;
+cout << "End effector pose:" << endl;
+cout << pose[0] << endl;
+cout << pose[1] << endl;
+cout << pose[2] << endl;
+cout << pose[3] << endl;
+cout << pose[4] << endl;
+cout << pose[5] << endl;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 viewer.setBackgroundColor (0, 0, 0);
 viewer.addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
+viewer.addCoordinateSystem(0.05, pose[0], pose[1], pose[2]);
 
-for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
+for(int j = 0; j < iterations; j++) //Idx-wise lines across the leg
 {
     stringstream ss;
     ss << j;
     string str = ss.str();
     if (valVec[j])
     {
-        if (j == finIdx) //concluded index for thickness evaluation
+        if (j == finIdx) //Concluded index for thickness evaluation
         {
-            viewer.addLine(cloud->points[oneSide[j]], cloud->points[otherSide[j]], 1, 1, 0, str); //concluded line
+            viewer.addLine(cloud->points[oneSide[j]], cloud->points[otherSide[j]], 1, 1, 0, str); //
         }
         else
         {
