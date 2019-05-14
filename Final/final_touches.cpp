@@ -502,7 +502,7 @@ else {int interval_tolerance = int(cloud->points.size() / 40);}
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
-if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->points.size()/40)
+if (abs(finIdx-point1) < interval_tolerance || abs(finIdx-point2) < interval_tolerance)
 {// if the two estimates are close
     point1 = otherSide[finIdx]; //Use the finIdx found by local minimum search
     point2 = oneSide[finIdx];
