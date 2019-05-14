@@ -236,9 +236,6 @@ float sum = 0.0, avg1, avg2;
     }
 }
 
-// Create a ROS publisher in the gloabal space, for use in the callBack function, for the output model coefficients
-ros::Publisher pub = nh.advertise<std_msgs::Float32MultiArray>("/robotPose", 1000);
-
 void callBack(const sensor_msgs::PointCloud2ConstPtr& input)
 {
     pcl::PCLPointCloud2::Ptr cloud_input(new pcl::PCLPointCloud2);
@@ -568,6 +565,9 @@ int main (int argc, char** argv) {
 
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber sub = nh.subscribe("/kinect2/sd/points", 1, callBack);
+
+    // Create a ROS publisher in the gloabal space, for use in the callBack function, for the output model coefficients
+    pub = nh.advertise<std_msgs::Float32MultiArray>("/robotPose", 1000);
 
     ros::Rate loop_rate(10);
 
