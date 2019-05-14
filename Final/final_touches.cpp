@@ -46,12 +46,23 @@
 #include "std_msgs/MultiArrayDimension.h"
 
 using namespace std;
+
+ros::Publisher pub;
 // Refine estimate combination
 // Check tool orientation
 // Implement in ROS
 // Integrate everything
 
-ros::Publisher pub;
+/*
+Fig 6.1 good
+- what about communicating with the FANUC 710ic?
+- ros has JointState and Pose msg types, why not use those?
+- discriminate line?
+- You have almost no comments in you code. Find some guidelines on writing useful comments. I can recommend writing comments before writing the code itself.
+- //A "setter" is usually a very simple piece of code, name that function something more telling.
+- //Saying normalize to run smoothly is not enough
+- make a drawing showing the various named points and vectors on the leg. Naming could be improved a lot.
+*/
 
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
@@ -292,8 +303,8 @@ pcl::PassThrough<pcl::PointXYZ> pass;
   chull.reconstruct (*cloud_hull);
 
   copyPointCloud(*cloud_hull, *cloud);
-srand (static_cast <unsigned> (time(0)));
 
+srand (static_cast <unsigned> (time(0)));
 
 ///////////////////////////////////////////////////////////////////////////
 // Try out different pairs, looking for the longest distance between them
@@ -504,6 +515,7 @@ cout << pose1[3] << endl;
 cout << pose1[4] << endl;
 cout << pose1[5] << endl;
 
+
 std_msgs::Float32MultiArray output;
 output.data.clear();
 
@@ -519,7 +531,7 @@ pub.publish (output);
 // Viewer //
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 viewer.setBackgroundColor (0, 0, 0);
-viewer.addPointCloud<pcl::PointXYZ> (cloud_filteredy, "sample cloud");
+viewer.addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
 
 for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
 {
@@ -530,15 +542,15 @@ for(int j = 0; j < iterations; j++) //idx-wise lines across the leg
     {
         if (j == finIdx) //concluded index for thickness evaluation
         {
-            viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 1, 1, 0, str); //concluded line
+            viewer.addLine(cloud->points[oneSide[j]], cloud->points[otherSide[j]], 1, 1, 0, str); //concluded line
         }
         else
         {
-            viewer.addLine(cloud->points[idx3[j]], cloud->points[idx4[j]], 1, 0, 0, str); //between points
+            viewer.addLine(cloud->points[oneSide[j]], cloud->points[otherSide[j]], 1, 0, 0, str); //between points
         }
     }
 }
-viewer.addLine(cloud->points[idx1], cloud->points[idx2], 0, 1, 0, "q"); //Show longest line
+viewer.addLine(cloud->points[legTip], cloud->points[legEnd], 0, 1, 0, "q"); //Show longest line
 viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18cm line
 
 while(!viewer.wasStopped ())
