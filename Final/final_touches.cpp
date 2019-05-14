@@ -23,8 +23,8 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/project_inliers.h>
 #include <pcl/filters/passthrough.h>
-//c++
 
+//c++
 #include <math.h>
 #include <vector>
 #include <algorithm>
@@ -225,6 +225,9 @@ float sum = 0.0, avg1, avg2;
     }
 }
 
+// Create a ROS publisher in the gloabal space, for use in the callBack function, for the output model coefficients
+ros::Publisher pub = nh.advertise<std_msgs::Float32MultiArray>("/robotPose", 1000);
+
 void callBack(const sensor_msgs::PointCloud2ConstPtr& input)
 {
     pcl::PCLPointCloud2::Ptr cloud_input(new pcl::PCLPointCloud2);
@@ -241,7 +244,7 @@ void callBack(const sensor_msgs::PointCloud2ConstPtr& input)
 
     // Convert to the templated PointCloud
     pcl::fromPCLPointCloud2(*cloud_input, *cloud);
-pcl::PassThrough<pcl::PointXYZ> pass;
+    pcl::PassThrough<pcl::PointXYZ> pass;
     pass.setInputCloud(cloud);
     pass.setFilterFieldName ("z");
     pass.setFilterLimits(0.95, 1.1);
@@ -516,8 +519,7 @@ for(int i = 0; i < 6; i++)
     output.data.push_back(pose1[i]);
 }
 
-
-pub.publish (output);
+pub.publish(output);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
@@ -559,14 +561,12 @@ int main (int argc, char** argv) {
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber sub = nh.subscribe("/kinect2/sd/points", 1, callBack);
 
-    // Create a ROS publisher for the output model coefficients
-    pub = nh.advertise<std_msgs::Float32MultiArray>("/robotPose", 1000);
+    ros:Rate loop_rate(10);
 
-
-
-
-    // Spin
-    ros::spin();
+    while (ros::ok){
+      ros::spinOnce();
+      loop_rate.sleep();
+    }
 
     return 0;
 }
