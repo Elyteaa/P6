@@ -474,7 +474,7 @@ while(!minFound)
     }
 }
 // Go from minIdx back to real idx of local minimum
-uint finIdx = 0; //
+int finIdx = 0; //
 for (int i = 0; i < iterations; i++)
 {
     if (finIdx == minIdx - 1)
@@ -495,6 +495,11 @@ int point1, point2; //coordinates where the cut should be
 tie(point1, point2) = eighteen(cloud, legTip, legEnd);
 int lastindex = cloud->points.size()-1;
 
+
+if (cloud->poins.size() <= 200)
+{int interval_tolerance = 5;}
+else {int interval_tolerance = int(cloud->points.size() / 40);}
+
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
 if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->points.size()/40)
@@ -502,6 +507,7 @@ if (abs(finIdx-point1)<cloud->points.size()/40 || abs(finIdx-point2)<cloud->poin
     point1 = otherSide[finIdx]; //Use the finIdx found by local minimum search
     point2 = oneSide[finIdx];
 }
+
 ///////////////////////////////////////////////////////////////////////////////
 // Output concluded end effector pose
 Pose myPose;
