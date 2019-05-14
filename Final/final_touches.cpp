@@ -569,7 +569,7 @@ int main (int argc, char** argv) {
     // Create a ROS subscriber for the input point cloud
     ros::Subscriber sub = nh.subscribe("/kinect2/sd/points", 1, callBack);
 
-    ros:Rate loop_rate(10);
+    ros::Rate loop_rate(10);
 
     while (ros::ok){
       ros::spinOnce();
