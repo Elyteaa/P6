@@ -38,10 +38,11 @@
 #include <pcl/ros/conversions.h>
 #include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
+#include <pcl_ros/transforms.h>
 
 //ROS
-#include "geometry_msgs/Point.h"
-#include "std_msgs/Float32MultiArray.h"
+#include "geometry_msgs/Pose.h"
+#include <sensor_msgs/PointCloud2.h>
 
 //Might not need these
 #include "std_msgs/MultiArrayLayout.h"
