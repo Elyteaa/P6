@@ -23,8 +23,8 @@
 #include <pcl/features/normal_3d.h>
 #include <pcl/filters/project_inliers.h>
 #include <pcl/filters/passthrough.h>
-//c++
 
+//c++
 #include <math.h>
 #include <vector>
 #include <algorithm>
@@ -42,6 +42,7 @@
 //ROS
 #include "geometry_msgs/Point.h"
 #include "std_msgs/Float32MultiArray.h"
+
 //Might not need these
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
@@ -49,6 +50,8 @@
 using namespace std;
 
 ros::Publisher pub;
+ros::Publsiher cloud_pub;
+
 // Refine estimate combination
 // Check tool orientation
 // Implement in ROS
@@ -524,13 +527,19 @@ for(int i = 0; i < 6; i++)
 {
     output.data.push_back(pose1[i]);
 }*/
-geometry_msgs::Point output;
+geometry_msgs::Pose output;
 
 output.position.x = pose1[0];
 output.position.y = pose1[1];
 output.position.z = pose1[2];
 
-pub.publish (output);
+pub.publish(output);
+
+sensor_msgs::PointCloud2 output_cloud;
+
+pcl::toROSMsg(*cloud, output_cloud);
+
+cloud_pub.publish(output_cloud);
 
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
@@ -573,7 +582,8 @@ int main (int argc, char** argv) {
     ros::Subscriber sub = nh.subscribe("/kinect2/sd/points", 1, callBack);
 
     // Create a ROS publisher for the output model coefficients
-    pub = nh.advertise<std_msgs::Float32MultiArray>("/robotPose", 1000);
+    pub = nh.advertise<geometry_msgs::Pose>("/robotPose", 1000);
+    cloud_pub = nh.advertise<sensor_msgs::PointCloud2> ("/captureThis", 1);
 
 
    ros::Rate loop_rate(10);
