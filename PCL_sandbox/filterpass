@@ -1,27 +1,34 @@
-   pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filteredz (new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filteredx (new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_filteredy (new pcl::PointCloud<pcl::PointXYZ>);
-        pcl::PointCloud<pcl::PointXYZ>::Ptr plane(new pcl::PointCloud<pcl::PointXYZ>);
-    pcl::PointCloud<pcl::PointXYZ>::Ptr plane_out(new pcl::PointCloud<pcl::PointXYZ>);
+pcl::ModelCoefficients::Ptr coefficients (new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers (new pcl::PointIndices);
+  // Create the segmentation object
+  pcl::SACSegmentation<pcl::PointXYZ> seg;
+  // Optional
+  seg.setOptimizeCoefficients (true);
+  // Mandatory
+  seg.setModelType (pcl::SACMODEL_PLANE);
+  seg.setMethodType (pcl::SAC_RANSAC);
+  seg.setDistanceThreshold (0.01);
 
-    //Using the PointCloud2 data from the ROS topic
-    pcl_conversions::toPCL(*input, *cloud_input);
+  seg.setInputCloud (cloud_filteredy);
+  seg.segment (*inliers, *coefficients);
+  std::cerr << "PointCloud after segmentation has: "
+            << inliers->indices.size () << " inliers." << std::endl;
 
-    // Convert to the templated PointCloud
-    pcl::fromPCLPointCloud2(*cloud_input, *cloud);
-    pcl::PassThrough<pcl::PointXYZ> pass;
-    pass.setInputCloud(cloud);
-    pass.setFilterFieldName ("z");
-    pass.setFilterLimits(0.95, 1.1);
-    pass.filter(*cloud_filteredz);
-  //1st: (0.95, 1.1)
-    pass.setInputCloud(cloud_filteredz);
-    pass.setFilterFieldName ("x");
-    pass.setFilterLimits(-0.2, 0.05);
-    pass.filter(*cloud_filteredx);
-  //1st: (-0.2, 0.05)
-    pass.setInputCloud(cloud_filteredx);
-    pass.setFilterFieldName ("y");
-    pass.setFilterLimits(-0.1, 0.3);
-    pass.filter(*cloud_filteredy);
-  //1st: (-0.1, 0.3)
+  // Project the model inliers
+  pcl::ProjectInliers<pcl::PointXYZ> proj;
+  proj.setModelType (pcl::SACMODEL_PLANE);
+  proj.setIndices (inliers);
+  proj.setInputCloud (cloud_filteredy);
+  proj.setModelCoefficients (coefficients);
+  proj.filter (*plane_out);
+  std::cerr << "PointCloud after projection has: "
+            << plane_out->points.size () << " data points." << std::endl;
+
+  // Create a Concave Hull representation of the projected inliers
+  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_hull (new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::ConcaveHull<pcl::PointXYZ> chull;
+  chull.setInputCloud (plane_out);
+  chull.setAlpha (0.01);
+  chull.reconstruct (*cloud_hull);
+
+  copyPointCloud(*cloud_hull, *cloud);
