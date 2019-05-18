@@ -145,7 +145,7 @@ for (int i = 0; i < 36; i++)
 }
 rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10); //rotate to found optimum
 rotvec = rotvec.normalized();
-
+/*
 Eigen:: Quaternionf q;
 // RPY In radians
 float roll = acos(planevec(0)); //roll
@@ -157,9 +157,34 @@ q =   AngleAxisf(roll, Vector3f::UnitX())
     * AngleAxisf(pitch, Vector3f::UnitY())
     * AngleAxisf(yaw, Vector3f::UnitZ());
 //cout << "Quaternion" << endl << q.coeffs() << endl;
-
+*/
 //q.FromTwoVectors(robvec, rotvec);
 
+Eigen::Vector3f vectorFromEndEffector, crossFromVectors;
+//vectorFromEndEffector << 0, 1, 0;
+vectorFromEndEffector = rotvec;
+vectorFromEndEffector = vectorFromEndEffector.normalized();
+crossFromVectors = planevec.cross(vectorFromEndEffector);
+
+float lengthofPlanevec = sqrt(pow(planevec.x(),2) + pow(planevec.y(),2) + pow(planevec.z(),2));
+float lengthofvectorFromEnfeffector = sqrt(pow(vectorFromEndEffector.x(),2) + pow(vectorFromEndEffector.y(),2) + pow(vectorFromEndEffector.z(),2));
+
+Eigen::Quaternionf q;
+
+quaternionForRotation.x() = crossFromVectors.x();
+quaternionForRotation.y() = crossFromVectors.y();
+quaternionForRotation.z() = crossFromVectors.z();
+quaternionForRotation.w() = planevec.dot(vectorFromEndEffector) + sqrt(lengthofPlanevec * lengthofvectorFromEnfeffector);
+
+cout << "Real part = " << quaternionForRotation.w() << " Vector part = " << quaternionForRotation.vec() << endl;
+
+quaternionForRotation = quaternionForRotation.normalized();
+
+pose[3] = quaternionForRotation.x();
+pose[4] = quaternionForRotation.y();
+pose[5] = quaternionForRotation.z();
+pose[6] = quaternionForRotation.w();
+    
 pose[3] = q.x();
 pose[4] = q.y();
 pose[5] = q.z();
