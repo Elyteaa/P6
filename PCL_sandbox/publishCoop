@@ -1,4 +1,4 @@
-/PCL
+//PCL
 #include <pcl/range_image/range_image.h>
 #include <pcl/io/io.h>
 #include <pcl/io/pcd_io.h>
@@ -36,7 +36,7 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/ros/conversions.h>
-#include <pcl/converatkin_makesions.h>
+#include <pcl/conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl_ros/transforms.h>
 
@@ -47,22 +47,6 @@
 //Might not need these
 #include "std_msgs/MultiArrayLayout.h"
 #include "std_msgs/MultiArrayDimension.h"
-
-//simplefind
-#include <pcl/range_image/range_image.h> //
-#include <math.h> //
-#include <vector> //
-#include <pcl/io/io.h> //
-
-#include <pcl/io/pcd_io.h>
-//#include <pcl/features/integral_image_normal.h> //
-#include <pcl/visualization/cloud_viewer.h>
-//#include <pcl/filters/voxel_grid.h> //
-//#include <pcl/io/ply_io.h> //
-//#include <pcl/features/normal_3d.h> //
-#include <iostream>
-#include <Eigen/Geometry>
-#include <Eigen/Dense>
 
 using namespace std;
 using namespace Eigen;
@@ -89,6 +73,20 @@ Fig 6.1 good
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
 
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){ //Between points
+float distx = cloud->points[index1].x - cloud->points[index2].x;
+float disty = cloud->points[index1].y - cloud->points[index2].y;
+float distz = cloud->points[index1].z - cloud->points[index2].z;
+
+float len = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
+return len;
+}
+
+float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1){ //to origin
+float len = sqrt(pow(cloud->points[index1].x, 2.0) + pow(cloud->points[index1].y, 2.0) + pow(cloud->points[index1].z, 2.0));
+return len;
+}
+
 class Pose {
 private:
     float pose[7];
@@ -99,9 +97,7 @@ void calculatePose(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int en
 pose[0] = cloud->points[end1].x + (cloud->points[start1].x - cloud->points[end1].x)/2;
 pose[1] = cloud->points[end1].y + (cloud->points[start1].y - cloud->points[end1].y)/2;
 pose[2] = cloud->points[end1].z + (cloud->points[start1].z - cloud->points[end1].z)/2;
-//Define vector between sides of le
-
-
+//Define vector between sides of leg
 Eigen::Vector3f across, along, rotvec, planevec, robvec;
 across << cloud->points[end1].x - cloud->points[start1].x,
           cloud->points[end1].y - cloud->points[start1].y,
@@ -114,14 +110,9 @@ along << cloud->points[end2].x - cloud->points[start2].x,
          cloud->points[end2].z - cloud->points[start2].z;
 along = along.normalized();
 
-//Move point 1cm towards shank
-pose[0] = pose[0]+along(0)*0.01;
-pose[1] = pose[1]+along(1)*0.01;
-pose[2] = pose[2]+along(2)*0.01;
-
 rotvec = across.cross(along); //Vector to be rotated around the plane vector
 rotvec = rotvec.normalized();
-planevec = across.cross(rotvec); //Vector to define cutting plane
+planevec = across.cross(rotvec); //Vector to define plane
 planevec = planevec.normalized();
 robvec << pose[0], pose[1], pose[2]; //Unit vector from the leg to the robot
 
@@ -145,51 +136,55 @@ for (int i = 0; i < 36; i++)
 rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10); //rotate to found optimum
 rotvec = rotvec.normalized();
 // Convert orientation into quaternions 
-Eigen::Quaternionf q;
+//Eigen:: Quaternionf q;
 // RPY In radians
 /*
 float roll = acos(planevec(0)); //roll
 float pitch = asin(rotvec(1)); //pitch
 float yaw = atan2(rotvec(0),rotvec(2)); //yaw
 //Converting orientation to quaternions
-
 q =   AngleAxisf(roll, Vector3f::UnitX())
     * AngleAxisf(pitch, Vector3f::UnitY())
     * AngleAxisf(yaw, Vector3f::UnitZ());
 //cout << "Quaternion" << endl << q.coeffs() << endl;
 */
 
-q.FromTwoVectors(robvec, rotvec);
-cout << "Quaternion" << endl << q.coeffs() << endl;
+//q.FromTwoVectors(robvec, rotvec);
+//cout << "Quaternion" << endl << q.coeffs() << endl;
 
-pose[3] = q.x();
-pose[4] = q.y();
-pose[5] = q.z();
-pose[6] = q.w();
+Eigen::Vector3f vectorFromEndEffector, crossFromVectors;
+vectorFromEndEffector << 0.54, -1.32, 0.04;
+//vectorFromEndEffector = rotvec;
+vectorFromEndEffector = vectorFromEndEffector.normalized();
+crossFromVectors = planevec.cross(vectorFromEndEffector);
+
+float lengthofPlanevec = sqrt(pow(planevec.x(),2) + pow(planevec.y(),2) + pow(planevec.z(),2));
+float lengthofvectorFromEnfeffector = sqrt(pow(vectorFromEndEffector.x(),2) + pow(vectorFromEndEffector.y(),2) + pow(vectorFromEndEffector.z(),2));
+
+Eigen::Quaternionf quaternionForRotation;
+
+quaternionForRotation.x() = crossFromVectors.x();
+quaternionForRotation.y() = crossFromVectors.y();
+quaternionForRotation.z() = crossFromVectors.z();
+quaternionForRotation.w() = planevec.dot(vectorFromEndEffector) + sqrt(lengthofPlanevec * lengthofvectorFromEnfeffector);
+
+cout << "Real part = " << quaternionForRotation.w() << " Vector part = " << quaternionForRotation.vec() << endl;
+
+quaternionForRotation = quaternionForRotation.normalized();
+
+pose[3] = quaternionForRotation.x();
+pose[4] = quaternionForRotation.y();
+pose[5] = quaternionForRotation.z();
+pose[6] = quaternionForRotation.w();
 
 }
 float* get_Pose(){
 return pose;
 }
 };
-
-float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){ //between points
-float distx = cloud->points[index1].x - cloud->points[index2].x;
-float disty = cloud->points[index1].y - cloud->points[index2].y;
-float distz = cloud->points[index1].z - cloud->points[index2].z;
-
-float len = sqrt(pow(distx, 2.0) + pow(disty, 2.0) + pow(distz, 2.0));
-return len;
-}
-
-float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1){ //to origin
-float len = sqrt(pow(cloud->points[index1].x, 2.0) + pow(cloud->points[index1].y, 2.0) + pow(cloud->points[index1].z, 2.0));
-return len;
-}
-
 tuple<int, int> setDistFunction (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end){
 float legLength = Dist(cloud, start, end); //Finding the length of the line
-float setDist = 0.15; //Set dist from start to desired new point
+float setDist = 0.14; //Set dist from start to desired new point
 float lengthRatio = setDist/legLength; //Ratio of set length to leg length
 
 //Here we calculate the direction "vector"
@@ -313,6 +308,7 @@ if (avg1<avg2) //Compare averages
 }
 }
 
+
 void notcallBack()
 {
     pcl::PCLPointCloud2::Ptr cloud_input(new pcl::PCLPointCloud2);
@@ -384,13 +380,7 @@ pcl::PassThrough<pcl::PointXYZ> pass;
 
   copyPointCloud(*cloud_hull, *cloud);
 
-// "int main"
 srand (static_cast <unsigned> (time(0)));
-// load point cloud
-pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
-
-pcl::io::loadPCDFile ("concaveboi.pcd", *cloud); //prev: hulltest.pdc
-cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
 // Try out different pairs, looking for the longest distance between them
@@ -475,7 +465,7 @@ for (int i = 0; i < iterations; i++)
     float dotp = alongVec.transpose() * acrossVec;
     angle[i] = acos(dotp) * 180/3.14159265; //Angle in deg
 
-    if (abs(angle[i] - 90) < 25) //Accept a diff of up to 35 deg
+    if (abs(angle[i] - 90) < 35) //Accept a diff of up to 35 deg
     {
         valVec.push_back(i+1); //Positive indicates valid line
         valCount++; //Count valid lines
@@ -611,13 +601,13 @@ geometry_msgs::PoseStamped output;
 
 output.header.frame_id = "camera";
 
-output.pose.position.x = pose1[0];
-output.pose.position.y = pose1[1];
-output.pose.position.z = pose1[2];
-output.pose.orientation.w = pose1[3];
-output.pose.orientation.x = pose1[4];
-output.pose.orientation.y = pose1[5];
-output.pose.orientation.z = pose1[6];
+output.pose.position.x = pose[0];
+output.pose.position.y = pose[1];
+output.pose.position.z = pose[2];
+output.pose.orientation.w = pose[3];
+output.pose.orientation.x = pose[4];
+output.pose.orientation.y = pose[5];
+output.pose.orientation.z = pose[6];
 
 
 pub.publish(output);
@@ -628,7 +618,7 @@ pcl::toROSMsg(*cloud_filteredy, output_cloud);
 output_cloud.header.frame_id = "camera";
 
 cloud_pub.publish(output_cloud);
-
+/*
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
@@ -659,8 +649,7 @@ viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18
 while(!viewer.wasStopped ())
 {
     viewer.spinOnce ();
-}
-
+}*/
 }
 
 int main (int argc, char** argv) {
