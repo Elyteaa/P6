@@ -10,8 +10,11 @@
 //#include <pcl/io/ply_io.h> //
 //#include <pcl/features/normal_3d.h> //
 #include <iostream>
+#include <Eigen/Geometry>
+#include <Eigen/Dense>
 
 using namespace std;
+using namespace Eigen;
 // Refine estimate combination
 // Check tool orientation
 // Implement in ROS
@@ -46,7 +49,7 @@ return len;
 
 class Pose {
 private:
-    float pose[6];
+    float pose[7];
 
 public:
 void calculatePose(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start1, int end1, int start2, int end2){
@@ -92,10 +95,29 @@ for (int i = 0; i < 36; i++)
 }
 rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10); //rotate to found optimum
 rotvec = rotvec.normalized();
+// Convert orientation into quaternions 
+Eigen:: Quaternionf q;
+// RPY In radians
+/*
+float roll = acos(planevec(0)); //roll
+float pitch = asin(rotvec(1)); //pitch
+float yaw = atan2(rotvec(0),rotvec(2)); //yaw
+//Converting orientation to quaternions
 
-pose[3] = acos(planevec(0));
-pose[4] = asin(rotvec(1)); //In radians
-pose[5] = atan2(rotvec(0),rotvec(2));
+q =   AngleAxisf(roll, Vector3f::UnitX())
+    * AngleAxisf(pitch, Vector3f::UnitY())
+    * AngleAxisf(yaw, Vector3f::UnitZ());
+//cout << "Quaternion" << endl << q.coeffs() << endl;
+*/
+
+q.FromTwoVectors(robvec, rotvec);
+cout << "Quaternion" << endl << q.coeffs() << endl;
+
+pose[3] = q.x();
+pose[4] = q.y();
+pose[5] = q.z();
+pose[6] = q.w();
+
 }
 float* get_Pose(){
 return pose;
@@ -104,38 +126,29 @@ return pose;
 
 tuple<int, int> setDistFunction (pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int start, int end){
 float legLength = Dist(cloud, start, end); //Finding the length of the line
-cout << "legLength: " << legLength << endl;
 float setDist = 0.14; //Set dist from start to desired new point
-float lengthRatio = setDist/legLength; //Div by length, to balance 
-cout << "lengthRatio: " << lengthRatio << endl;
-
-//By modifying lengthRatio we can find any point on the line
-//where lengthRatio = 0 corresponds to our starting point and lengthRatio = 1 to our end point
+float lengthRatio = setDist/legLength; //Ratio of set length to leg length
 
 //Here we calculate the direction "vector"
 float xDir = cloud->points[end].x - cloud->points[start].x;
 float yDir = cloud->points[end].y - cloud->points[start].y;
 float zDir = cloud->points[end].z - cloud->points[start].z;
 
-//Pushing the point on the line 18cm from start to the pointcloud
-pcl::PointXYZ pp; //Create empty point pp
-pp.x = cloud->points[start].x + xDir*lengthRatio;
-pp.y = cloud->points[start].y + yDir*lengthRatio;
-pp.z = cloud->points[start].z + zDir*lengthRatio;
-cloud->push_back(pp); //Add new point to point cloud
+pcl::PointXYZ newPoint;             //Create empty point newPoint
+newPoint.x = cloud->points[start].x + xDir*lengthRatio;
+newPoint.y = cloud->points[start].y + yDir*lengthRatio; //Calculate its position
+newPoint.z = cloud->points[start].z + zDir*lengthRatio;
+cloud->push_back(newPoint);         //Add new point to point cloud
 
-//Here we find the distance from the start of the line to the point
-int lastIndex = cloud->points.size()-1; //Index of the new point
-
-int p1 = 0, p2 = 0;
-float tempDist, tempShortest = 1.0; //Temp variables for finding shortest dist
-vector<int> temp;
 //Search for the smallest dist to the new point from any point, except itself
+int newPointIndex = cloud->points.size()-1; //Index of the new point
+int p1 = 0, p2 = 0;                 //Indices of best line across leg
+float tempDist, tempShortest = 1.0; //Temp variables for finding shortest dist
 for(int i = 0; i < cloud->points.size(); i++)
 {
-    if (i!= lastIndex) //Exclude the new point
+    if (i!= newPointIndex) //Exclude the new point
     {
-        tempDist = Dist(cloud, i, lastIndex); //Calculate dist to a point
+        tempDist = Dist(cloud, i, newPointIndex); //Calculate dist to a point
         if(tempShortest > tempDist) //If current point is closer than any found before
         {
             tempShortest = tempDist;//Assign new shortest dist
@@ -146,10 +159,10 @@ for(int i = 0; i < cloud->points.size(); i++)
 tempShortest = 1.0; //Reset to high value
 for(int i = 0; i < cloud->points.size(); i++) //Search for closest point on the other side
 {
-    if (abs(p1-i)>30 && i!= lastIndex)//Exclude close neighbors and new point
+    if (abs(p1-i)>30 && i!= newPointIndex)//Exclude close neighbors and new point
     {
         tempDist = Dist(cloud, i, p1); //Calculate dist to a point
-        if(tempShortest > tempDist) //If current point is closer than any found before
+        if(tempShortest > tempDist)    //If current point is closer than any found before
         {
             tempShortest = tempDist;//Assign new shortest dist
             p2 = i;                 //Assign index for closest point
@@ -160,28 +173,81 @@ cout << "Set dist estimate: [" << p1 << ", " << p2 << "]" << endl;
 return make_tuple(p1, p2);
 }
 
-bool startIsNarrower(float myArray[], int arraySize){
+bool startIsTip(float myArray[], int arraySize, std::vector<int> &myVec, int vecSize){
 //Checks if the first half of an array has a smaller mean value than the 2nd half
-float sum = 0.0, avg1, avg2;
-    for (int i = 0; i < arraySize/2; i++) //Sum first half
-    {
-        sum += myArray[i];
-    }
-    avg1 = sum/arraySize/2; //Mean of 1st half
+float sum = 0.0, temp = 0.0, avg1, avg2, variance1, variance2;
+for (int i = 0; i < arraySize/2; i++) //Sum first half
+{
+    sum += myArray[i];
+}
+avg1 = sum/arraySize/2; //Mean of 1st half
 
-    sum = 0.0;
-    for (int i = arraySize/2; i < arraySize; i++)
-    {
-        sum += myArray[i];
-    }
-    avg2 = sum/arraySize/2; //Mean of 2nd half
+for (int i = 0; i < arraySize/2; i++)
+{
+    temp += (myArray[i] - avg1) * (myArray[i] - avg1);
+}
+variance1 = temp/(arraySize/2); //Variance of 1st half
 
-    if (avg1<avg2) //Compare them
+sum = temp = 0.0; //reset sum and temp
+for (int i = arraySize/2; i < arraySize; i++)
+{
+    sum += myArray[i];
+}
+avg2 = sum/arraySize/2; //Mean of 2nd half
+for (int i = 0; i < arraySize/2; i++)
+{
+    temp += (myArray[i] - avg2) * (myArray[i] - avg2);
+}
+variance2 = temp/(arraySize/2); //Variance of 2nd half
+
+// Count nr of invalid lines in each half of the leg
+int invalid1 = 0, invalid2 = 0;
+for (int i = 0; i < vecSize/2; i++)
+{
+    if (!myVec[i])
     {
-        return true;
-    } else {
-        return false;
+        invalid1++;
     }
+}
+for (int i = vecSize/2; i < vecSize; i++)
+{
+    if (!myVec[i])
+    {
+        invalid2++;
+    }
+}
+
+cout << "avg1: " << avg1 << endl;
+cout << "variance1: " << variance1 << endl;
+
+cout << "avg2: " << avg2 << endl;
+cout << "variance2: " << variance2 << endl;
+
+cout << "invalid1: " << invalid1 << endl;
+cout << "invalid2: " << invalid2 << endl;
+
+if (invalid1<invalid2) //Compare nr of invalid lines
+{
+    cout << "1st half has less invalid lines" << endl;
+} else {
+    cout << "2nd half has more invalid lines" << endl;
+}
+
+if (variance1<variance2) //Compare variances
+{
+    cout << "1st half has smaller variance" << endl;
+} else {
+    cout << "2nd half has smaller variance" << endl;
+}
+
+if (avg1<avg2) //Compare averages
+{
+    cout << "1st half has smaller mean" << endl;
+    return true;
+} else {
+    cout << "2nd half has smaller mean" << endl;
+    return false;
+}
 }
 
 int main (int argc, char** argv) {
@@ -194,34 +260,34 @@ cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
 // Try out different pairs, looking for the longest distance between them
-float longest = 0.0; // longest line found
-float length = 0.0;  // current length being evaluated
-int legTip = 0;      // one end of the longest line, supposed to be leg tip
-int legEnd = 0;      // other end of the longest line, supposed to be shoulder
+float longest = 0.0; // Longest line found
+float length = 0.0;  // Current length being evaluated
+int legTip = 0;      // One end of the longest line, supposed to be leg tip
+int legShank = 0;      // Other end of the longest line, supposed to be shoulder
 
 for (int i = 0; i < cloud->points.size()/2; i++)
 {
     for (int j = 0; j < cloud->points.size(); j++)
     {
-        if (abs(i-j)>cloud->points.size()/5) //exclude immediate neighbors
+        if (abs(i-j)>cloud->points.size()/5) //Exclude immediate neighbors
         {
-            length = Dist(cloud, i, j); //calculate distance
+            length = Dist(cloud, i, j); //Calculate distance
             if (length>longest)
             {
-                longest = length; //Assign new longest length
-                legTip = i; //Assign leg tip index
-                legEnd = j; //Assign leg end index
+                longest = length;   //Assign new longest length
+                legTip = i;         //Assign leg tip index
+                legShank = j;         //Assign leg end index
             }
         }
     }
 }
-cout << "The longest line found goes between points [" << legTip << "," << legEnd
+cout << "The longest line found goes between points [" << legTip << "," << legShank
      << "] and has length: " << longest << endl;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: thickness increase. Index increment
 const int iterations = cloud->points.size()/2;//How many lines will be made across the leg
-float shortest[iterations] = {1.0}; //Distances between pairs of oneSide[i] and otherSide[i]
+float shortest[iterations] = {};    //Distances between pairs of oneSide[i] and otherSide[i]
 int oneSide[iterations] = {};       //Index of a point on one side of the leg
 int otherSide[iterations] = {};     //Index of nearest point opposite from oneSide[i]
 
@@ -255,32 +321,21 @@ for (int i = 0; i < iterations; i++)
     }
 }
 /////////////////////////////////////////////////////////////////////////////////
-// Make sure that legTip is the narrow end
-if (startIsNarrower(shortest, iterations))
-{
-    cout << "legTip is in the narrow end, no switch" << endl;
-} else {
-    int temp = legTip; // Switch them
-    legTip = legEnd;
-    legEnd = temp;
-    cout << "legTip was in the wide end, has been switched" << endl;
-}
-/////////////////////////////////////////////////////////////////////////////////
 // Discriminate between lines based on angle // Calculate angles
 Eigen::Vector3f alongVec, acrossVec;
-alongVec << cloud->points[legEnd].x - cloud->points[legTip].x,
-            cloud->points[legEnd].y - cloud->points[legTip].y,
-            cloud->points[legEnd].z - cloud->points[legTip].z;
+alongVec << cloud->points[legShank].x - cloud->points[legTip].x,
+            cloud->points[legShank].y - cloud->points[legTip].y,
+            cloud->points[legShank].z - cloud->points[legTip].z;
 alongVec = alongVec.normalized(); //Unit vector of the longest line along the leg
 
-std::vector<int> valVec; //Only valid lines 
+std::vector<int> valVec; //Vector that shows which lines are valid
 uint valCount = 0; //How many lines are valid
 float angle[iterations] = {}; //Angles of the lines
 for (int i = 0; i < iterations; i++)
 {
     acrossVec << cloud->points[oneSide[i]].x - cloud->points[otherSide[i]].x,
-            cloud->points[oneSide[i]].y - cloud->points[otherSide[i]].y,
-            cloud->points[oneSide[i]].z - cloud->points[otherSide[i]].z;
+                 cloud->points[oneSide[i]].y - cloud->points[otherSide[i]].y,
+                 cloud->points[oneSide[i]].z - cloud->points[otherSide[i]].z;
     acrossVec = acrossVec.normalized(); //Unit vector of line across the leg
     
     float dotp = alongVec.transpose() * acrossVec;
@@ -307,26 +362,37 @@ for (int i = 0; i < iterations; i++)
         relcount++;
     }
 }
+/////////////////////////////////////////////////////////////////////////////////
+// Make sure that legTip is the narrow end
+if (startIsTip(valShort, valCount, valVec, iterations))
+{
+    cout << "legTip is in the narrow end, no swap" << endl;
+} else {
+    int temp = legTip; // Switch them
+    legTip = legShank;
+    legShank = temp;
+    cout << "legTip was in the wide end, has been swapped" << endl;
+}
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum, starting from the middle
 uint minIdx = valCount/2;   //Where we start searching
 bool minFound = false;      //Has the best local minimum been found?
 uint minTries = 0;          //Times we have hit a local minimum
 uint check = valCount/12;   //Check a nr of steps, proportional to size of array
-int dir = 1;                //Direction. Is positive to ensure mobility, if start at local minimum
+int dir = -1;                //Direction. Is positive to ensure mobility, if start at local minimum
 while(!minFound)
 {
     if (valShort[minIdx]>valShort[minIdx-1])
     {
         minIdx--; //Decrement: search at lower indices
         dir = -1; //Set direction negative
-        cout << "minus" << endl;
+        cout << "Minimum search: -" << endl;
     }
     else if (valShort[minIdx]>valShort[minIdx+1])
     {
         minIdx++; //Increment: search at higher indices
-        dir = 1; //Set direction pos
-        cout << "plus" << endl;
+        dir = 1;  //Set direction pos
+        cout << "Minimum search: +" << endl;
     }
     else if (valShort[minIdx]<valShort[minIdx+1] && valShort[minIdx]<valShort[minIdx-1])
     {
@@ -375,29 +441,31 @@ cout << "Min has original idx: [" << oneSide[finIdx] << ", " << otherSide[finIdx
 ////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: distance from tip, 0.18m
 int point1, point2; //Coordinates where the cut should be
-tie(point1, point2) = setDistFunction(cloud, legTip, legEnd);
-//int lastIndex = cloud->points.size()-1;
+tie(point1, point2) = setDistFunction(cloud, legTip, legShank);
+//int newPointIndex = cloud->points.size()-1;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
 if (abs(finIdx-point1)<=cloud->points.size()/40 || abs(finIdx-point2)<=cloud->points.size()/40)
 {// If the two estimates are close
-    point1 = otherSide[finIdx]; //Use the finIdx found by local minimum search
-    point2 = oneSide[finIdx];
+    point1 = oneSide[finIdx]; //Use the finIdx found by local minimum search
+    point2 = otherSide[finIdx];
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Output concluded end effector pose
 Pose myPose;
-myPose.calculatePose(cloud, point1, point2, legTip, legEnd);
+myPose.calculatePose(cloud, point1, point2, legTip, legShank);
 float *pose = myPose.get_Pose();
 
 cout << "End effector pose:" << endl;
-cout << pose[0] << endl;
-cout << pose[1] << endl;
-cout << pose[2] << endl;
-cout << pose[3] << endl;
-cout << pose[4] << endl;
-cout << pose[5] << endl;
+cout << "x: " << pose[0] << endl;
+cout << "y: " << pose[1] << endl;
+cout << "z: " << pose[2] << endl;
+cout << "Quaternion part:" << endl;
+cout << "w: " << pose[3] << endl;
+cout << "x: " << pose[4] << endl;
+cout << "y: " << pose[5] << endl;
+cout << "z: " << pose[6] << endl;
 
 ///////////////////////////////////////////////////////////////////////////////
 // Viewer //
@@ -423,7 +491,7 @@ for(int j = 0; j < iterations; j++) //Idx-wise lines across the leg
         }
     }
 }
-viewer.addLine(cloud->points[legTip], cloud->points[legEnd], 0, 1, 0, "q"); //Show longest line
+viewer.addLine(cloud->points[legTip], cloud->points[legShank], 0, 1, 0, "q"); //Show longest line
 viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18cm line
 
 while(!viewer.wasStopped ())
