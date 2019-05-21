@@ -188,7 +188,7 @@ return make_tuple(p1, p2);
 bool startIsTip(float myArray[], int arraySize, std::vector<int> &myVec, int vecSize){
 //Checks if the legTip index is assigned to the tip end of the pcd
 float sum = 0.0, temp = 0.0, avg1, avg2, var1, var2;
-for (int i = 0; i < arraySize/2; i++) //Sum first half
+for (int i = 0; i < arraySize/2; i++) //Sum first half of array
 {
     sum += myArray[i];
 }
@@ -200,7 +200,7 @@ for (int i = 0; i < arraySize/2; i++)
 var1 = temp/(arraySize/2); //Variance of 1st half
 
 sum = temp = 0.0; //reset sum and temp
-for (int i = arraySize/2; i < arraySize; i++) //Sum 2nd half
+for (int i = arraySize/2; i < arraySize; i++) //Sum 2nd half of array
 {
     sum += myArray[i];
 }
@@ -241,7 +241,7 @@ float cert2 = abs(var1-var2)/(var1+var2);
 float cert3 = abs(inv1-inv2)/(inv1+inv2);
 
 if (avg1<avg2) //Compare averages
-{//Smaller average distance across favors a given end of the leg
+{//Smaller average distance across favours a given end of the leg
     cout << "Smaller mean -> firstHalf" << endl;
     firstHalf++;
 } else {
@@ -249,7 +249,7 @@ if (avg1<avg2) //Compare averages
     secondHalf++;
 }
 if (var1<var2) //Compare variances
-{//Greater variance favors a given end of the leg
+{//Greater variance favours a given end of the leg
     cout << "Greater variance -> secondHalf" << endl;
     secondHalf++;
 } else {
@@ -257,7 +257,7 @@ if (var1<var2) //Compare variances
     firstHalf++;
 }
 if (inv1<inv2) //Compare nr of invalid lines
-{//Less invalid lines favor a given end of the leg
+{//Less invalid lines favours a given end of the leg
     cout << "Fewer invalid lines -> firstHalf" << endl;
     firstHalf++;
 } else {
@@ -270,13 +270,12 @@ cout << "Score: secondHalf half: [" << secondHalf << "]" << endl;
 cout << "cert1: " << cert1 << endl;
 cout << "cert2: " << cert2 << endl;
 cout << "cert3: " << cert3 << endl;
-
 cout << "certainty: " << certainty << endl;
-if (firstHalf>secondHalf)
+if (firstHalf>secondHalf) //If more indicators favour the first half
 {
-    return true;
+    return true; //first half is selected
 } else {
-    return false;
+    return false; //second half is selected
 }
 }
 /*
@@ -297,7 +296,7 @@ srand (static_cast <unsigned> (time(0)));
 // load point cloud
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
 
-pcl::io::loadPCDFile ("new009.pcd", *cloud); //prev: hulltest.pdc
+pcl::io::loadPCDFile ("hullline.pcd", *cloud); //prev: hulltest.pdc
 cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -417,10 +416,10 @@ if (startIsTip(valShort, valCount, valVec, iterations))
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum, starting from the middle
 int minIdx = valCount/2;   //Where we start searching
-bool minFound = false;      //Has the best local minimum been found?
-uint minTries = 0;          //Times we have hit a local minimum
-uint check = valCount/12;   //Check a nr of steps, proportional to size of array
-int dir = -1;               //Direction. Is positive to ensure mobility, if start at local minimum
+bool minFound = false;     //Has the best local minimum been found?
+uint minTries = 0;         //Times we have hit a local minimum
+uint check = valCount/12;  //Check a nr of steps, proportional to size of array
+int dir = -1;              //Direction. Is positive to ensure mobility, if start at local minimum
 while(!minFound)
 {
     if (minIdx == 0 || minIdx == valCount)
@@ -517,8 +516,8 @@ cout << "z: " << pose[6] << endl;
 pcl::visualization::PCLVisualizer viewer("PCL Viewer");
 viewer.setBackgroundColor (0, 0, 0);
 viewer.addPointCloud<pcl::PointXYZ> (cloud, "sample cloud");
-viewer.addCoordinateSystem(0.05, pose[0], pose[1], pose[2]);
-viewer.addCoordinateSystem(0.05, cloud->points[legTip].x, cloud->points[legTip].y ,cloud->points[legTip].z);
+viewer.addCoordinateSystem(0.05, pose[0], pose[1], pose[2]); //Coord system to hsow where the cut is 
+viewer.addCoordinateSystem(0.05, cloud->points[legTip].x, cloud->points[legTip].y ,cloud->points[legTip].z); //where the tip is
 
 for(int j = 0; j < iterations; j++) //Idx-wise lines across the leg
 {
@@ -538,7 +537,7 @@ for(int j = 0; j < iterations; j++) //Idx-wise lines across the leg
     }
 }
 viewer.addLine(cloud->points[legTip], cloud->points[legShank], 0, 1, 0, "q"); //Show longest line
-viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //18cm line
+viewer.addLine(cloud->points[point1], cloud->points[point2], 1, 1, 1, "t"); //Final concluded line
 
 while(!viewer.wasStopped ())
 {
