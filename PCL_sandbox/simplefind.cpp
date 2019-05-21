@@ -77,8 +77,8 @@ float dotp; //Dotproduct
 
 for (int i = 0; i < 36; i++)
 { //Test which vector fits best
-    rotvec = rotvec*cos(angleInc) + (planevec.cross(rotvec))*sin(angleInc);// + planevec*(planevec*rotvec)*(1-cos(10); //Rodrigue's formula, abridged
-    dotp = rotvec.transpose() * robvec; // Dot product with robot vector
+    rotvec = rotvec*cos(angleInc) + (planevec.cross(rotvec))*sin(angleInc) + planevec*(planevec.dot(rotvec))*(1-cos(angleInc)); //Rodrigue's formula
+    dotp = rotvec.dot(robvec); // Dot product with robot vector
     angle[i] = acos(dotp) * 180/3.14159265; //Angle in deg
     if (angle[i]<smallAngle)
     {
@@ -86,12 +86,15 @@ for (int i = 0; i < 36; i++)
         vecIdx = i;            //Assign idx of best fitting vector
     }
 }
-rotvec = rotvec*cos(vecIdx*10) + (planevec.cross(rotvec))*sin(vecIdx*10); //rotate to found optimum
+
+rotvec = rotvec*cos(vecIdx*angleInc) + (planevec.cross(rotvec))*sin(vecIdx*angleInc) + planevec*(planevec.dot(rotvec))*(1-cos(angleInc)); //Rodrigue's formula
 rotvec = rotvec.normalized();
 // Convert orientation into quaternions 
 Eigen:: Quaternionf q;
 // RPY In radians
 /*
+
+
 float roll = acos(planevec(0)); //roll
 float pitch = asin(rotvec(1)); //pitch
 float yaw = atan2(rotvec(0),rotvec(2)); //yaw
@@ -322,7 +325,7 @@ for (int i = 0; i < cloud->points.size()/2; i++)
         }
     }
 }
-cout << "The longest line found goes between points [" << legTip << "," << legShank
+cout << "The longest line found goes between points [" << legTip << ", " << legShank
      << "] and has length: " << longest << endl;
 /////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: thickness increase. Index increment
@@ -414,8 +417,8 @@ if (startIsTip(valShort, valCount, valVec, iterations))
     cout << "legTip was in the wide end, has been swapped" << endl;
 }
 ///////////////////////////////////////////////////////////////////////////////
-// Evaluate thickness // Find local minimum, starting from the middle
-int minIdx = valCount/2;   //Where we start searching
+// Evaluate thickness // Find local minimum
+int minIdx = valCount/2;   //Where we start searching, in the middle
 bool minFound = false;     //Has the best local minimum been found?
 uint minTries = 0;         //Times we have hit a local minimum
 uint check = valCount/12;  //Check a nr of steps, proportional to size of array
@@ -486,7 +489,6 @@ cout << "Min has original idx: [" << oneSide[finIdx] << ", " << otherSide[finIdx
 // Placing the cut based on: distance from tip, 0.18m
 int point1, point2; //Coordinates where the cut should be
 tie(point1, point2) = setDistFunction(cloud, legTip, legShank);
-//int newPointIndex = cloud->points.size()-1;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Combine the two estimates
