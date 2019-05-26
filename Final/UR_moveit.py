@@ -65,7 +65,7 @@ class transformation:
 	#The function calculates coordinates from camera frame to robot frame
 	def inRobotFrame(self, x, y, z):
 		#The function receives coordinates in the camera frame and results in coordinates in the robot frame
-		transformationMatrix()
+		self.transformationMatrix()
 		res = np.dot(self.T,np.reshape(np.array([x, y, z, 1]), (4,1)))
 		return res
 
