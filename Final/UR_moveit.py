@@ -76,7 +76,7 @@ def move_group_python_interface_tutorial():
 	print "============ STOPPING"
 
 if __name__=='__main__':
- 	try:
- 		move_group_python_interface_tutorial()
+	try:
+		move_group_python_interface_tutorial()
 	except rospy.ROSInterruptException:
 		pass
