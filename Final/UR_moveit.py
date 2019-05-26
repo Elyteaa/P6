@@ -8,6 +8,12 @@ import geometry_msgs.msg
 
 from std_msgs.msg import String
 
+robotPose = geometry_msgs.msg.Pose()
+
+def callback(data):
+	global robotPose
+	robotPose = data
+
 def move_group_python_interface_tutorial():
 	print "============ Starting tutorial setup"
 	moveit_commander.roscpp_initialize(sys.argv)
@@ -16,6 +22,7 @@ def move_group_python_interface_tutorial():
 	scene = moveit_commander.PlanningSceneInterface()
 	group = moveit_commander.MoveGroupCommander("ur3")
 	display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory)
+	rospy.Subscriber("position", Pose, callback)
 
 	#This sleep is ONLY to allow Rviz to come up.
 	print "============ Waiting for RVIZ..."
@@ -43,10 +50,17 @@ def move_group_python_interface_tutorial():
 	#Planning a motion for this group to a desired pose for the end-effector
 	print "============ Generating plan 1"
 	pose_target = geometry_msgs.msg.Pose()
-	pose_target.orientation.w = 1.0
-	pose_target.position.x = 0.7
-	pose_target.position.y = -0.05
-	pose_target.position.z = 1.1
+
+	"""pose_target.position.x = robotPose[0]
+	pose_target.position.y = robotPose[0]
+	pose_target.position.z = robotPose[0]
+	pose_target.orientation.w = robotPose[0]
+	pose_target.orientation.w = robotPose[0]
+	pose_target.orientation.w = robotPose[0]
+	pose_target.orientation.w = robotPose[0]"""
+
+	pose_target = robotPose
+
 	group.set_pose_target(pose_target)
 
 	#Calling the planner to compute the plan and visualize it if successful. Note: this does not ask move_group to actually move the robot
@@ -57,6 +71,7 @@ def move_group_python_interface_tutorial():
 	#A blocking funtion, to move the actual robot. Requires a controller to be active and report success on execution of a trajectory
 	group.go(wait=True)
 
+	rospy.spin()
 	moveit_commander.roscpp_shutdown()
 	print "============ STOPPING"
 
