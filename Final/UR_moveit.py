@@ -22,7 +22,7 @@ def move_group_python_interface_tutorial():
 	scene = moveit_commander.PlanningSceneInterface()
 	group = moveit_commander.MoveGroupCommander("ur3")
 	display_trajectory_publisher = rospy.Publisher('/move_group/display_planned_path', moveit_msgs.msg.DisplayTrajectory)
-	rospy.Subscriber("position", Pose, callback)
+	rospy.Subscriber("robotPose", Pose, callback)
 
 	#This sleep is ONLY to allow Rviz to come up.
 	print "============ Waiting for RVIZ..."
