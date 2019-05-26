@@ -16,8 +16,8 @@
 using namespace std;
 using namespace Eigen;
 
-float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
-float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
+//float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2);
+//float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1);
 
 float Dist(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud, int index1, int index2){ //Between points
 float distx = cloud->points[index1].x - cloud->points[index2].x;
@@ -80,35 +80,41 @@ for (int i = 0; i < 36; i++)
     rotvec = rotvec*cos(angleInc) + (planevec.cross(rotvec))*sin(angleInc) + planevec*(planevec.dot(rotvec))*(1-cos(angleInc)); //Rodrigue's formula
     dotp = rotvec.dot(robvec); // Dot product with robot vector
     angle[i] = acos(dotp) * 180/3.14159265; //Angle in deg
+    cout << "Angle[" << i << "]: " << angle[i] << endl;
     if (angle[i]<smallAngle)
     {
         smallAngle = angle[i]; //Assign new smallest angle
         vecIdx = i;            //Assign idx of best fitting vector
     }
 }
+cout << "Smallest angle: [" << vecIdx << "]: " << smallAngle << endl;
 
 rotvec = rotvec*cos(vecIdx*angleInc) + (planevec.cross(rotvec))*sin(vecIdx*angleInc) + planevec*(planevec.dot(rotvec))*(1-cos(angleInc)); //Rodrigue's formula
 rotvec = rotvec.normalized();
 // Convert orientation into quaternions 
-Eigen:: Quaternionf q;
+Eigen:: Quaternionf quaternionForRotation;
 // RPY In radians
-/*
+
 
 
 float roll = acos(planevec(0)); //roll
 float pitch = asin(rotvec(1)); //pitch
 float yaw = atan2(rotvec(0),rotvec(2)); //yaw
 //Converting orientation to quaternions
+cout << "R, P, Y: " << roll << ", " << pitch << ", " << yaw << endl;
 
-q =   AngleAxisf(roll, Vector3f::UnitX())
+
+
+quaternionForRotation =   AngleAxisf(roll, Vector3f::UnitX())
     * AngleAxisf(pitch, Vector3f::UnitY())
     * AngleAxisf(yaw, Vector3f::UnitZ());
 //cout << "Quaternion" << endl << q.coeffs() << endl;
-*/
 
-//q.FromTwoVectors(robvec, rotvec);
+
+quaternionForRotation.FromTwoVectors(robvec, rotvec);
 //cout << "Quaternion" << endl << q.coeffs() << endl;
 
+/*
 Eigen::Vector3f vectorFromEndEffector, crossFromVectors;
 vectorFromEndEffector << 0.54, -1.32, 0.04; //what's this?
 vectorFromEndEffector = vectorFromEndEffector.normalized();
@@ -126,13 +132,14 @@ quaternionForRotation.w() = planevec.dot(vectorFromEndEffector) + sqrt(lengthofP
 
 cout << "Real part = " << quaternionForRotation.w() << " Vector part = " << endl << quaternionForRotation.vec() << endl;
 
-quaternionForRotation = quaternionForRotation.normalized();
+%% mark: 72 20 21 22
 
+quaternionForRotation = quaternionForRotation.normalized();
+*/
 pose[3] = quaternionForRotation.x();
 pose[4] = quaternionForRotation.y();
 pose[5] = quaternionForRotation.z();
 pose[6] = quaternionForRotation.w();
-
 }
 float* get_Pose(){
 return pose;
@@ -163,7 +170,7 @@ for(int i = 0; i < cloud->points.size(); i++)
 {
     if (i!= newPointIndex) //Exclude the new point
     {
-        tempDist = Dist(cloud, i, newPointIndex); //Calculate dist to a point
+        tempDist = Dist(cloud, i, newPointIndex); //Dist to a point
         if(tempShortest > tempDist) //If current point is closer than any found before
         {
             tempShortest = tempDist;//Assign new shortest dist
@@ -176,7 +183,7 @@ for(int i = 0; i < cloud->points.size(); i++) //Search for closest point on the 
 {
     if (abs(p1-i)>30 && i!= newPointIndex)//Exclude close neighbors and new point
     {
-        tempDist = Dist(cloud, i, p1); //Calculate dist to a point
+        tempDist = Dist(cloud, i, p1); //Dist to a point
         if(tempShortest > tempDist)    //If current point is closer than any found before
         {
             tempShortest = tempDist;//Assign new shortest dist
@@ -299,7 +306,7 @@ srand (static_cast <unsigned> (time(0)));
 // load point cloud
 pcl::PointCloud<pcl::PointXYZ>::Ptr cloud (new pcl::PointCloud<pcl::PointXYZ>);
 
-pcl::io::loadPCDFile ("hullline.pcd", *cloud); //prev: hulltest.pdc
+pcl::io::loadPCDFile ("rotation1.pcd", *cloud); //prev: hulltest.pdc
 cout << "Point cloud size: " << cloud->points.size() << endl;
 
 ///////////////////////////////////////////////////////////////////////////
@@ -329,20 +336,17 @@ cout << "The longest line found goes between points [" << legTip << ", " << legS
      << "] and has length: " << longest << endl;
 /////////////////////////////////////////////////////////////////////////////////
 // Placing the cut based on: thickness increase. Index increment
-const int iterations = cloud->points.size()/2;//How many lines will be made across the leg
+const int iterations = cloud->points.size()/2;//Nr of lines across the leg
 float shortest[iterations] = {};    //Distances between pairs of oneSide[i] and otherSide[i]
 int oneSide[iterations] = {};       //Index of a point on one side of the leg
 int otherSide[iterations] = {};     //Index of nearest point opposite from oneSide[i]
-
 // Populate oneSide with indices, starting from legTip
 for (int i = 0; i < iterations; i++)
 {
     if (legTip + i > cloud->points.size()-1)
     {// In case we would exceed size of point cloud
         oneSide[i] = legTip + i - cloud->points.size();
-    }
-    else
-    {
+    } else {
         oneSide[i] = legTip + i;
     }
 }
@@ -418,11 +422,11 @@ if (startIsTip(valShort, valCount, valVec, iterations))
 }
 ///////////////////////////////////////////////////////////////////////////////
 // Evaluate thickness // Find local minimum
-int minIdx = valCount/2;   //Where we start searching, in the middle
-bool minFound = false;     //Has the best local minimum been found?
-uint minTries = 0;         //Times we have hit a local minimum
-uint check = valCount/12;  //Check a nr of steps, proportional to size of array
-int dir = -1;              //Direction. Is positive to ensure mobility, if start at local minimum
+int minIdx = valCount/2;  //Where we start searching, in the middle
+bool minFound = false;    //Has the best local minimum been found?
+uint minTries = 0;        //Times we have hit a local minimum
+uint check = valCount/12; //Check a nr of steps, proportional to size of array
+int dir = -1;             //Direction. Is positive to ensure mobility, if start at local minimum
 while(!minFound)
 {
     if (minIdx == 0 || minIdx == valCount)
