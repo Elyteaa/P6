@@ -23,14 +23,14 @@ class transformation:
    #The function initializes the transformation matrix
    def transformationMatrix(self):   
       #Some points in the robot frame
-      Rx = np.array([421.48, 465.49, 455, 399.04, 649.96, 545.72 ])
-      Ry = np.array([-53.51, 186.71, -121.75, 217.34, 72.67, 331.88])
-      Rz = np.array([121.93, 136.30, -67.21, -56.64, 163.24, 152.66])
+      Rx = np.array([345.05, 434.78, 469.29, 391.97, 391.54, 442.28])
+      Ry = np.array([271.3, 167.05, 192.59, 303.09, 277.12, 176.24])
+      Rz = np.array([158.75, 82.64, 153.52, 119.2, 220.35, 183.12])
       
       #Some points in the camera frame
-      Cx = np.array([61.26, 116.5, 99.46, 50.9, 305.3, 193.6,])
-      Cy = np.array([-75.5, -72.7, 111.83, 115.56, -106.12, -81.27])
-      Cz = np.array([1027, 1279, 956, 1295, 1177, 1429])
+      Cx = np.array([-65.53, -43.69, -87.31, -122.23, -99.78, -57.69])
+      Cy = np.array([-4.95, 62.47, -7.64, 32.51, -69.33, -39.64])
+      Cz = np.array([563, 700, 718, 581, 588, 697])
       #A matrix for the camera frame, since we want to transform from camera frame to robot frame
       A = np.matrix([[np.sum(np.square(Cx)), np.sum(np.multiply(Cx,Cy)), np.sum(np.multiply(Cx,Cz)), np.sum(Cx)],
         [np.sum(np.multiply(Cx,Cy)), np.sum(np.square(Cy)), np.sum(np.multiply(Cy,Cz)), np.sum(Cy)],
@@ -202,7 +202,7 @@ def main():
     print(frame.T)
     
     #Just a trial
-    res = frame.inRobotFrame(61.26, -75.5, 1027)   
+    res = frame.inRobotFrame(-8, 124.3, 878.7)   
     print(res)
 '''  
     try:
