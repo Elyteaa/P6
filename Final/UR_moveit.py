@@ -28,7 +28,7 @@ class transformation:
 		self.transformationMatrix()
 		
 	#The function initializes the transformation matrix
-	def transformationMatrix(self):	
+	def transformationMatrix(self):
 		#Some points in the robot frame
 		Rx = np.array([0.386, 0.265, 0.681, 0.560, 0.601, 0.488])
 		Ry = np.array([0.485, 0.491, 0.083, 0.085, -0.095, -0.138])
